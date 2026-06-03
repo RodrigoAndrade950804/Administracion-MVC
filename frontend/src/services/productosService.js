@@ -47,8 +47,40 @@ export const crearProducto = async (
 
 export const actualizarProducto = async (
   idProducto,
-  producto
+  producto,
+  idUser = null
 ) => {
+
+  // =========================
+  // PRODUCTO ACTUAL
+  // =========================
+
+  const {
+    data: productoActual,
+    error: errorProducto
+  } =
+    await supabase
+      .from("productos")
+      .select("*")
+      .eq(
+        "id_producto",
+        idProducto
+      )
+      .single();
+
+  if (errorProducto) {
+    throw errorProducto;
+  }
+
+  const stockAnterior =
+    Number(productoActual.stock);
+
+  const stockNuevo =
+    Number(producto.stock);
+
+  // =========================
+  // ACTUALIZAR PRODUCTO
+  // =========================
 
   const { error } =
     await supabase
@@ -60,6 +92,68 @@ export const actualizarProducto = async (
       );
 
   if (error) throw error;
+
+  // =========================
+  // REGISTRAR MOVIMIENTO
+  // =========================
+
+  if (
+    stockAnterior !== stockNuevo
+  ) {
+
+    const tipoMovimiento =
+      stockNuevo > stockAnterior
+        ? "entrada"
+        : "ajuste";
+
+    const observacion =
+      stockNuevo > stockAnterior
+        ? "Ingreso manual de stock"
+        : "Ajuste manual de stock";
+
+    const cantidad =
+      Math.abs(
+        stockNuevo - stockAnterior
+      );
+
+    const {
+      error: movimientoError
+    } =
+      await supabase
+        .from(
+          "movimientos_inventario"
+        )
+        .insert([
+          {
+            id_producto:
+              idProducto,
+
+            id_user:
+              idUser,
+
+            tipo_movimiento:
+              tipoMovimiento,
+
+            cantidad,
+
+            stock_anterior:
+              stockAnterior,
+
+            stock_nuevo:
+              stockNuevo,
+
+            observacion
+          }
+        ]);
+
+    if (movimientoError) {
+      console.error(
+        "Error movimiento:",
+        movimientoError
+      );
+    }
+
+  }
 
 };
 

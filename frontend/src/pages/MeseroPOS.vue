@@ -19,7 +19,8 @@ import {
   actualizarDetallePedido,
   eliminarDetallePedido,
   descontarInventarioPedido,
-  cerrarPedido
+  cerrarPedido,
+  eliminarPedido
 } from "../services/pedidosService";
 
 const router = useRouter();
@@ -114,18 +115,30 @@ const total = computed(() =>
 // AGREGAR / MODIFICAR
 // =========================
 const agregarProducto = async (producto) => {
+  let pedidoCreadoTemporalmente = false;
+  let pedidoTemporal = null;
+
   try {
+
     if (!mesaSeleccionada.value) {
       alert("Seleccione una mesa");
       return;
     }
 
+    // Si no existe pedido abierto, crearlo temporalmente
     if (!pedidoActivo.value) {
-      pedidoActivo.value = await crearPedido(
+
+      pedidoTemporal = await crearPedido(
         mesaSeleccionada.value,
         authStore.user.id_user
       );
-      await updateMesaStatus(mesaSeleccionada.value, "ocupada");
+
+      pedidoCreadoTemporalmente = true;
+
+    } else {
+
+      pedidoTemporal = pedidoActivo.value;
+
     }
 
     const existente = pedido.value.find(
@@ -133,22 +146,72 @@ const agregarProducto = async (producto) => {
     );
 
     if (existente) {
+
       await actualizarDetallePedido(
-        pedidoActivo.value.id_pedido,
+        pedidoTemporal.id_pedido,
         existente.id_detalle,
         existente.quantity + 1
       );
+
     } else {
+
       await agregarProductoPedido(
-        pedidoActivo.value.id_pedido,
+        pedidoTemporal.id_pedido,
         producto
       );
+
+    }
+
+    // Solo si todo salió bien:
+    // se guarda el pedido activo y se ocupa la mesa
+
+    if (pedidoCreadoTemporalmente) {
+
+      pedidoActivo.value = pedidoTemporal;
+
+      await updateMesaStatus(
+        mesaSeleccionada.value,
+        "ocupada"
+      );
+
     }
 
     await cargarPedidoMesa();
+
     await verificarActivacionMadi();
+
   } catch (error) {
-    alert(error.message || "Stock insuficiente");
+
+    // Si el pedido fue creado pero no se pudo agregar el producto
+    // (por ejemplo por falta de stock), lo eliminamos
+
+    if (
+      pedidoCreadoTemporalmente &&
+      pedidoTemporal
+    ) {
+
+      try {
+
+        await eliminarPedido(
+          pedidoTemporal.id_pedido
+        );
+
+      } catch (e) {
+
+        console.error(
+          "Error eliminando pedido temporal:",
+          e
+        );
+
+      }
+
+    }
+
+    alert(
+      error.message ||
+      "Stock insuficiente"
+    );
+
   }
 };
 
@@ -161,7 +224,28 @@ const aumentarCantidad = async (item) => {
     );
     await cargarPedidoMesa();
   } catch (error) {
-    alert(error.message || "Stock insuficiente");
+
+    if (
+      pedidoActivo.value &&
+      pedido.value.length === 0
+    ) {
+
+      await eliminarPedido(
+        pedidoActivo.value.id_pedido
+      );
+
+      await updateMesaStatus(
+        mesaSeleccionada.value,
+        "libre"
+      );
+
+      pedidoActivo.value = null;
+    }
+
+    alert(
+      error.message ||
+      "Stock insuficiente"
+    );
   }
 };
 

@@ -4,26 +4,54 @@ import supabaseAdmin from "../services/supabaseAdmin.js";
 // FUNCIÓN UTILITARIA
 // =========================
 const recalcularYActualizarTotal = async (idPedido) => {
-  const { data: detalles, error } = await supabaseAdmin
+
+  const {
+    data: detalles,
+    error
+  } = await supabaseAdmin
     .from("detalle_pedidos")
-    .select("subtotal")
-    .eq("id_pedido", idPedido);
+    .select(`
+      subtotal,
+      is_madi_applied
+    `)
+    .eq(
+      "id_pedido",
+      idPedido
+    );
 
   if (error) throw error;
 
-  const nuevoTotal = detalles.reduce(
-    (acc, item) => acc + Number(item.subtotal),
-    0
-  );
+  const nuevoTotal =
+    detalles.reduce(
+      (acc, item) =>
+        acc + Number(item.subtotal),
+      0
+    );
 
-  const { error: errorUpdate } = await supabaseAdmin
+  const tieneMadi =
+    detalles.some(
+      item => item.is_madi_applied
+    );
+
+  const {
+    error: errorUpdate
+  } = await supabaseAdmin
     .from("pedidos")
-    .update({ total_amount: nuevoTotal })
-    .eq("id_pedido", idPedido);
+    .update({
+      total_amount: nuevoTotal,
+      madi_applied: tieneMadi
+    })
+    .eq(
+      "id_pedido",
+      idPedido
+    );
 
-  if (errorUpdate) throw errorUpdate;
+  if (errorUpdate) {
+    throw errorUpdate;
+  }
 
   return nuevoTotal;
+
 };
 
 // =========================
@@ -95,9 +123,15 @@ export const agregarProductoPedido = async (req, res) => {
         id_pedido: idPedido,
         id_producto,
         quantity,
+
+        base_unit_price: baseUnitPrice,
+
         final_unit_price: finalUnitPrice,
+
         subtotal: finalUnitPrice * quantity,
+
         is_madi_applied: isMadiApplied,
+
         madi_discount_percentage: madiDiscount
     }])
     .select()

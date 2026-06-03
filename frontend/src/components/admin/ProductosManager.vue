@@ -1,10 +1,19 @@
 <script setup>
 import { ref, onMounted } from "vue";
 
-import { getProductos, crearProducto, actualizarProducto, eliminarProducto }
+import { useAuthStore } from "../../stores/authStore";
+
+import {
+  getProductos,
+  crearProducto,
+  actualizarProducto,
+  eliminarProducto
+}
 from "../../services/productosService";
 
 const productos = ref([]);
+
+const authStore = useAuthStore();
 
 const editando = ref(null);
 
@@ -21,8 +30,16 @@ const form = ref({
 
 const loadProductos = async () => {
 
-  productos.value =
-    await getProductos();
+  try {
+
+    productos.value =
+      await getProductos();
+
+  } catch (error) {
+
+    console.error(error);
+
+  }
 
 };
 
@@ -39,7 +56,8 @@ async () => {
 
       await actualizarProducto(
         editando.value,
-        form.value
+        form.value,
+        authStore.user?.id_user
       );
 
     } else {
@@ -111,11 +129,23 @@ async (id) => {
 
   if (!confirmar) return;
 
-  await eliminarProducto(id);
+  try {
 
-  await loadProductos();
+    await eliminarProducto(id);
+
+    await loadProductos();
+
+  } catch (error) {
+
+    console.error(error);
+
+  }
 
 };
+
+// =========================
+// INIT
+// =========================
 
 onMounted(() => {
 
