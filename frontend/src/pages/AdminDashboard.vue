@@ -3,8 +3,10 @@ import { ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/authStore";
 
+// Importación del cliente de Supabase para funcionalidades de tiempo real (Realtime).
 import { supabase } from "../services/supabase";
 
+// Importación de componentes hijos para la gestión administrativa.
 import ProductosManager from "../components/admin/ProductosManager.vue";
 import UsuariosManager from "../components/admin/UsuariosManager.vue";
 import MadiManager from "../components/admin/MadiManager.vue";
@@ -12,15 +14,19 @@ import MadiManager from "../components/admin/MadiManager.vue";
 const router = useRouter();
 const authStore = useAuthStore();
 
-// 🔑 clave reactiva para forzar refresh
+// 🔑 'productosKey' actúa como un disparador reactivo: 
+// Al incrementar este valor, Vue destruye y recrea el componente <ProductosManager>,
+// forzando una recarga de los datos cuando hay cambios en la base de datos.
 const productosKey = ref(0);
 
+// Referencia al canal de suscripción de Supabase para limpieza posterior.
 let canalProductos = null;
 
 // =========================
 // LOGOUT
 // =========================
 
+// Cierra la sesión del usuario en el store global y redirige al inicio.
 const logout = () => {
   authStore.logout();
   router.push("/");
@@ -30,30 +36,35 @@ const logout = () => {
 // REALTIME PRODUCTOS
 // =========================
 
+// Configura un canal de escucha en la tabla 'productos' de Supabase.
 const iniciarRealtimeProductos = () => {
   canalProductos = supabase
-    .channel("admin-productos-realtime")
+    .channel("admin-productos-realtime") // Nombre único para el canal.
     .on(
       "postgres_changes",
       {
-        event: "UPDATE",
+        event: "UPDATE", // Escucha solo actualizaciones en la tabla.
         schema: "public",
         table: "productos",
       },
       (payload) => {
         console.log("Admin realtime productos:", payload);
 
-        // 🔄 fuerza recarga de ProductosManager
+        // 🔄 Incrementamos el contador para disparar el re-renderizado
+        // del componente hijo <ProductosManager>.
         productosKey.value++;
       }
     )
-    .subscribe();
+    .subscribe(); // Inicia la escucha activa del canal.
 };
 
+// Ciclo de vida: Inicia la suscripción apenas el dashboard está montado.
 onMounted(() => {
   iniciarRealtimeProductos();
 });
 
+// Ciclo de vida: Elimina el canal de suscripción al salir de la página
+// para evitar fugas de memoria y tráfico innecesario (prevención de bugs).
 onUnmounted(() => {
   if (canalProductos) {
     supabase.removeChannel(canalProductos);

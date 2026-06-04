@@ -1,22 +1,26 @@
 <script setup>
 import { ref, onMounted } from "vue";
-
+// Importación del store de autenticación para obtener el ID del usuario que realiza los cambios.
 import { useAuthStore } from "../../stores/authStore";
-
+// Importación de las funciones CRUD (Create, Read, Update, Delete) para productos.
 import {
   getProductos,
   crearProducto,
   actualizarProducto,
   eliminarProducto
-}
-from "../../services/productosService";
+} from "../../services/productosService";
 
+// Estado reactivo que almacena la lista completa de productos.
 const productos = ref([]);
 
+// Instancia del store de autenticación para acceso a datos de sesión.
 const authStore = useAuthStore();
 
+// Estado reactivo: Si tiene un valor (ID), indica que estamos editando un producto existente.
+// Si es null, indica que estamos en modo de creación.
 const editando = ref(null);
 
+// Objeto reactivo que vincula el formulario del template con los datos del producto.
 const form = ref({
   name: "",
   sale_price: "",
@@ -28,46 +32,35 @@ const form = ref({
 // LOAD
 // =========================
 
+// Carga la lista de productos desde la base de datos para mostrar en la interfaz.
 const loadProductos = async () => {
-
   try {
-
-    productos.value =
-      await getProductos();
-
+    productos.value = await getProductos();
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
 // =========================
 // GUARDAR
 // =========================
 
-const guardarProducto =
-async () => {
-
+// Ejecuta la lógica para guardar o actualizar un producto dependiendo del estado 'editando'.
+const guardarProducto = async () => {
   try {
-
     if (editando.value) {
-
+      // Si estamos editando, enviamos el ID, los datos nuevos y el ID del usuario autor.
       await actualizarProducto(
         editando.value,
         form.value,
         authStore.user?.id_user
       );
-
     } else {
-
-      await crearProducto(
-        form.value
-      );
-
+      // Si es un nuevo registro, simplemente creamos el producto.
+      await crearProducto(form.value);
     }
 
+    // Reinicio del formulario al estado inicial tras la operación.
     form.value = {
       name: "",
       sale_price: "",
@@ -75,82 +68,53 @@ async () => {
       stock: ""
     };
 
+    // Salimos del modo edición y refrescamos el listado.
     editando.value = null;
-
     await loadProductos();
-
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
 // =========================
 // EDITAR
 // =========================
 
-const editarProducto =
-(producto) => {
-
-  editando.value =
-    producto.id_producto;
-
+// Prepara el formulario cargando los datos del producto seleccionado para su edición.
+const editarProducto = (producto) => {
+  editando.value = producto.id_producto; // Marcamos el ID en edición.
   form.value = {
-
-    name:
-      producto.name,
-
-    sale_price:
-      producto.sale_price,
-
-    production_cost:
-      producto.production_cost,
-
-    stock:
-      producto.stock
-
+    name: producto.name,
+    sale_price: producto.sale_price,
+    production_cost: producto.production_cost,
+    stock: producto.stock
   };
-
 };
 
 // =========================
 // ELIMINAR
 // =========================
 
-const borrarProducto =
-async (id) => {
-
-  const confirmar =
-    confirm(
-      "¿Eliminar producto?"
-    );
-
+// Solicita confirmación y elimina un producto específico por su ID.
+const borrarProducto = async (id) => {
+  const confirmar = confirm("¿Eliminar producto?");
   if (!confirmar) return;
 
   try {
-
     await eliminarProducto(id);
-
-    await loadProductos();
-
+    await loadProductos(); // Actualiza la vista eliminando el elemento de la lista.
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
 // =========================
 // INIT
 // =========================
 
+// Carga inicial de los datos cuando el componente se monta en el DOM.
 onMounted(() => {
-
   loadProductos();
-
 });
 </script>
 

@@ -1,4 +1,6 @@
 <script setup>
+// Importación de las funciones de servicio que actúan como puente hacia la API/Supabase.
+// Estas funciones gestionan tanto la configuración general de MADI como las reglas de bonos.
 import {
   getConfiguracionMadi,
   actualizarConfiguracionMadi,
@@ -6,220 +8,139 @@ import {
   crearReglaBono,
   actualizarReglaBono,
   eliminarReglaBono,
-}
-from "../../services/madiService";
+} from "../../services/madiService";
 
-import {
-  ref,
-  onMounted
-}
-from "vue";
+// Importación de utilidades de Vue 3 (Composition API).
+import { ref, onMounted } from "vue";
 
+// =========================
+// ESTADOS (REACTIVIDAD)
+// =========================
+// Almacena la configuración global del sistema MADI.
 const configuracion = ref(null);
 
+// Lista que mantiene las reglas de bonos cargadas desde la base de datos.
 const reglasBonos = ref([]);
 
+// Estado temporal para el modal de edición; almacena la regla que el usuario desea modificar.
 const reglaEditando = ref(null);
 
-const nuevaRegla =
-  ref({
+// Objeto reactivo para el formulario de creación de una nueva regla.
+const nuevaRegla = ref({
+  level_name: "",
+  min_percentage: 0,
+  max_percentage: 0,
+  bonus_factor: 1
+});
 
-    level_name: "",
+// =========================
+// LÓGICA DE NEGOCIO (REGLAS)
+// =========================
 
-    min_percentage: 0,
-
-    max_percentage: 0,
-
-    bonus_factor: 1
-
-  });
-
+// Copia la regla seleccionada al estado de edición para poblar el modal.
 const editarRegla = (regla) => {
-
-  reglaEditando.value = {
-    ...regla
-  };
-
+  reglaEditando.value = { ...regla };
 };
 
+// Persiste los cambios de una regla específica en el backend.
 const guardarRegla = async () => {
-
   try {
-
     await actualizarReglaBono(
       reglaEditando.value.id_reglas,
       {
-        level_name:
-          reglaEditando.value.level_name,
-
-        min_percentage:
-          reglaEditando.value.min_percentage,
-
-        max_percentage:
-          reglaEditando.value.max_percentage,
-
-        bonus_factor:
-          reglaEditando.value.bonus_factor
+        level_name: reglaEditando.value.level_name,
+        min_percentage: reglaEditando.value.min_percentage,
+        max_percentage: reglaEditando.value.max_percentage,
+        bonus_factor: reglaEditando.value.bonus_factor
       }
     );
-
+    // Limpia el estado de edición y refresca la lista de reglas.
     reglaEditando.value = null;
-
     await loadReglas();
-
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
-const eliminarRegla = async (
-  id
-) => {
-
-  const confirmar =
-    confirm(
-      "¿Eliminar esta regla?"
-    );
-
-  if (!confirmar) {
-    return;
-  }
+// Solicita confirmación al usuario antes de llamar al servicio de eliminación.
+const eliminarRegla = async (id) => {
+  const confirmar = confirm("¿Eliminar esta regla?");
+  if (!confirmar) return;
 
   try {
-
-    await eliminarReglaBono(
-      id
-    );
-
-    await loadReglas();
-
+    await eliminarReglaBono(id);
+    await loadReglas(); // Refresca la tabla tras la eliminación.
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
 // =========================
-// LOAD
+// LÓGICA DE CARGA (LOAD)
 // =========================
 
-const loadConfiguracion =
-async () => {
-
+// Obtiene la configuración general del sistema desde el servicio.
+const loadConfiguracion = async () => {
   try {
-
-    configuracion.value =
-      await getConfiguracionMadi();
-
+    configuracion.value = await getConfiguracionMadi();
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
-const crearRegla =
-async () => {
-
+// Crea una nueva regla y reinicia el formulario.
+const crearRegla = async () => {
   try {
-
-    await crearReglaBono(
-      nuevaRegla.value
-    );
-
+    await crearReglaBono(nuevaRegla.value);
     nuevaRegla.value = {
-
       level_name: "",
-
       min_percentage: 0,
-
       max_percentage: 0,
-
       bonus_factor: 1
-
     };
-
-    await loadReglas();
-
+    await loadReglas(); // Actualiza la vista de la tabla.
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
-const loadReglas =
-async () => {
-
+// Obtiene la lista completa de reglas de bonos configuradas.
+const loadReglas = async () => {
   try {
-
-    reglasBonos.value =
-      await getReglasBonos();
-
+    reglasBonos.value = await getReglasBonos();
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
 // =========================
-// GUARDAR
+// LÓGICA DE GUARDADO (CONFIG)
 // =========================
 
-const guardarConfiguracion =
-async () => {
-
+// Envía la configuración global actualizada al backend.
+const guardarConfiguracion = async () => {
   try {
-
     await actualizarConfiguracionMadi(
       configuracion.value.id_madi,
       {
-        daily_success_threshold:
-          configuracion.value.daily_success_threshold,
-
-        madi_multiplier:
-          configuracion.value.madi_multiplier,
-
-        is_active:
-          configuracion.value.is_active,
-
-        discount_percentage:
-          configuracion.value.discount_percentage,
-
-        daily_sales_goal:
-          configuracion.value.daily_sales_goal
+        daily_success_threshold: configuracion.value.daily_success_threshold,
+        madi_multiplier: configuracion.value.madi_multiplier,
+        is_active: configuracion.value.is_active,
+        discount_percentage: configuracion.value.discount_percentage,
+        daily_sales_goal: configuracion.value.daily_sales_goal
       }
     );
-
-    alert(
-      "Configuración actualizada"
-    );
-
+    alert("Configuración actualizada");
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
+// Ciclo de vida: Al montar el componente, cargamos los datos iniciales.
 onMounted(async () => {
-
   await loadConfiguracion();
-
   await loadReglas();
-
 });
-
 </script>
 
 <template>

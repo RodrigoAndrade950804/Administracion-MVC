@@ -2,6 +2,8 @@
 import { ref, computed, onMounted, watch, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/authStore";
+
+// Importación de todos los microservicios que componen la lógica del POS
 import { getProductos } from "../services/productosService";
 import { getMesas, updateMesaStatus } from "../services/mesasService";
 import { supabase } from "../services/supabase";
@@ -23,39 +25,46 @@ import {
   eliminarPedido
 } from "../services/pedidosService";
 
+// Instancias globales
 const router = useRouter();
 const authStore = useAuthStore();
 
-// =========================
-// STATE
-// =========================
-const productos = ref([]);
-const mesas = ref([]);
-const mesaSeleccionada = ref(null);
-const pedido = ref([]);
-const pedidoActivo = ref(null);
-const madiConfig = ref(null);
+// ==========================================
+// ESTADO REACTIVO (Variables de la interfaz)
+// ==========================================
+const productos = ref([]);         // Catálogo de productos disponibles para la venta.
+const mesas = ref([]);             // Lista de mesas del restaurante con su estado actual.
+const mesaSeleccionada = ref(null);// ID de la mesa que el mesero está atendiendo en este momento.
+const pedido = ref([]);            // Array de visualización: Lista de ítems en el carrito de la mesa seleccionada.
+const pedidoActivo = ref(null);    // Objeto técnico: Registro principal del pedido abierto en la base de datos.
+const madiConfig = ref(null);      // Almacena las reglas de bonificación y Happy Hour activas.
 
+// Variables de control para los canales de WebSockets. 
+// Guardar la referencia es vital para poder "desconectarlos" al salir de la pantalla.
 let canalProductos = null;
 let canalMadi = null;
+let canalPedidos = null;
+let canalMesas = null;
 
-// =========================
-// LOGOUT
-// =========================
+// ==========================================
+// CERRAR SESIÓN
+// ==========================================
 const logout = () => {
   authStore.logout();
   router.push("/");
 };
 
-// =========================
-// LOAD DATA
-// =========================
+// ==========================================
+// CARGA INICIAL DE DATOS
+// ==========================================
 const loadProductos = async () => {
   productos.value = await getProductos();
 };
 
 const loadMesas = async () => {
   mesas.value = await getMesas();
+  // Auto-selección: Si el mesero acaba de entrar y no ha elegido mesa,
+  // seleccionamos la primera por defecto para evitar una pantalla vacía.
   if (!mesaSeleccionada.value && mesas.value.length > 0) {
     mesaSeleccionada.value = mesas.value[0].id_mesa;
   }
@@ -65,230 +74,209 @@ const loadMadi = async () => {
   madiConfig.value = await getConfiguracionMadi();
 };
 
-// =========================
-// REALTIME
-// =========================
+// ==========================================
+// LISTENERS EN TIEMPO REAL (WebSockets)
+// ==========================================
+// Estas funciones garantizan que el POS nunca muestre información obsoleta.
+// Si otro mesero o el administrador cambia algo, esta pantalla se actualiza sola.
+
 const iniciarRealtimeProductos = () => {
+  // Escucha cambios en el catálogo (ej. cambio de precio o stock agotado)
   canalProductos = supabase
     .channel("productos-realtime")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "productos" },
-      loadProductos
-    )
+    .on("postgres_changes", { event: "*", schema: "public", table: "productos" }, loadProductos)
     .subscribe();
 };
 
 const iniciarRealtimeMadi = () => {
+  // Escucha si el sistema activa el Happy Hour automáticamente
   canalMadi = suscribirConfiguracionMadi(loadMadi);
 };
 
-// =========================
-// PEDIDOS
-// =========================
+const iniciarRealtimePedidos = () => {
+  // Doble escucha: Monitorea tanto la creación de pedidos (cabeceras) 
+  // como la adición de productos a esos pedidos (detalles).
+  canalPedidos = supabase
+    .channel("pedidos-realtime")
+    .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, async () => {
+      await loadMesas();        // Refresca colores de las mesas (Libre/Ocupada)
+      await cargarPedidoMesa(); // Refresca el ticket en pantalla
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "detalle_pedidos" }, async () => {
+      await cargarPedidoMesa(); // Refresca las cantidades y subtotales en el ticket
+    })
+    .subscribe();
+};
+
+const iniciarRealtimeMesas = () => {
+  // Escucha si una mesa cambia de estado (ej. alguien más la ocupó)
+  canalMesas = supabase
+    .channel("mesas-realtime")
+    .on("postgres_changes", { event: "*", schema: "public", table: "mesas" }, loadMesas)
+    .subscribe();
+};
+
+// ==========================================
+// GESTIÓN DEL PEDIDO Y CARRITO
+// ==========================================
+
+/**
+ * Busca en la base de datos si la mesa seleccionada ya tiene clientes consumiendo.
+ * Si los tiene, reconstruye el carrito visual (`pedido.value`).
+ * Si no los tiene, limpia la pantalla para un pedido nuevo.
+ */
 const cargarPedidoMesa = async () => {
   if (!mesaSeleccionada.value) return;
 
   const data = await obtenerPedidoAbiertoMesa(mesaSeleccionada.value);
 
   if (!data) {
+    // La mesa está vacía.
     pedidoActivo.value = null;
     pedido.value = [];
     return;
   }
 
+  // Hay un pedido en curso. Mapeamos la respuesta anidada de Supabase 
+  // a un formato plano y fácil de renderizar en el HTML.
   pedidoActivo.value = data;
   pedido.value = data.detalle_pedidos.map(d => ({
-    ...d.productos,
-    id_detalle: d.id_detalle,
+    ...d.productos,            // Trae nombre y precio base del producto
+    id_detalle: d.id_detalle,  // ID vital para poder borrarlo o modificarlo después
     id_producto: d.id_producto,
     quantity: d.quantity,
     subtotal: d.subtotal
   }));
 };
 
+/**
+ * Propiedad computada: Recalcula automáticamente el Total a pagar
+ * cada vez que cambia la cantidad o los ítems del array `pedido`.
+ */
 const total = computed(() =>
   pedido.value.reduce((acc, i) => acc + Number(i.subtotal), 0)
 );
 
-// =========================
-// AGREGAR / MODIFICAR
-// =========================
+// ==========================================
+// TRANSACCIONES COMPLEJAS (Agregar/Quitar)
+// ==========================================
+
+/**
+ * Lógica crítica: Agrega un producto a la mesa.
+ * Maneja el escenario donde la mesa estaba libre (crea pedido) 
+ * o ya estaba ocupada (suma al pedido existente).
+ */
 const agregarProducto = async (producto) => {
   let pedidoCreadoTemporalmente = false;
   let pedidoTemporal = null;
 
   try {
-
     if (!mesaSeleccionada.value) {
       alert("Seleccione una mesa");
       return;
     }
 
-    // Si no existe pedido abierto, crearlo temporalmente
+    // PASO 1: Si la mesa no tiene un pedido abierto, lo creamos primero.
     if (!pedidoActivo.value) {
-
-      pedidoTemporal = await crearPedido(
-        mesaSeleccionada.value,
-        authStore.user.id_user
-      );
-
+      pedidoTemporal = await crearPedido(mesaSeleccionada.value, authStore.user.id_user);
       pedidoCreadoTemporalmente = true;
-
     } else {
-
       pedidoTemporal = pedidoActivo.value;
-
     }
 
-    const existente = pedido.value.find(
-      i => i.id_producto === producto.id_producto
-    );
+    // PASO 2: Verificamos si este producto ya estaba en la cuenta de esta mesa.
+    const existente = pedido.value.find(i => i.id_producto === producto.id_producto);
 
+    // PASO 3: Ejecutamos la petición al backend (que validará el stock en bodega).
     if (existente) {
-
-      await actualizarDetallePedido(
-        pedidoTemporal.id_pedido,
-        existente.id_detalle,
-        existente.quantity + 1
-      );
-
+      // Ya existía: sumamos 1 a la cantidad.
+      await actualizarDetallePedido(pedidoTemporal.id_pedido, existente.id_detalle, existente.quantity + 1);
     } else {
-
-      await agregarProductoPedido(
-        pedidoTemporal.id_pedido,
-        producto
-      );
-
+      // Es nuevo: lo insertamos en la base de datos.
+      await agregarProductoPedido(pedidoTemporal.id_pedido, producto);
     }
 
-    // Solo si todo salió bien:
-    // se guarda el pedido activo y se ocupa la mesa
-
+    // PASO 4: Si acabamos de crear el pedido, bloqueamos la mesa visualmente.
     if (pedidoCreadoTemporalmente) {
-
       pedidoActivo.value = pedidoTemporal;
-
-      await updateMesaStatus(
-        mesaSeleccionada.value,
-        "ocupada"
-      );
-
+      await updateMesaStatus(mesaSeleccionada.value, "ocupada");
     }
 
+    // PASO 5: Todo salió bien, recargamos la vista y verificamos si llegamos a la meta de bonos.
     await cargarPedidoMesa();
-
     await verificarActivacionMadi();
 
   } catch (error) {
-
-    // Si el pedido fue creado pero no se pudo agregar el producto
-    // (por ejemplo por falta de stock), lo eliminamos
-
-    if (
-      pedidoCreadoTemporalmente &&
-      pedidoTemporal
-    ) {
-
-      try {
-
-        await eliminarPedido(
-          pedidoTemporal.id_pedido
-        );
-
-      } catch (e) {
-
-        console.error(
-          "Error eliminando pedido temporal:",
-          e
-        );
-
+    // ==========================================
+    // SISTEMA DE ROLLBACK (Prevención de errores catastróficos)
+    // ==========================================
+    // Si el backend rechazó el producto (ej. por falta de stock), y nosotros 
+    // acabábamos de crear un pedido vacío para esta mesa, debemos eliminar ese 
+    // pedido vacío para no dejar "basura" en la base de datos ni bloquear la mesa.
+    if (pedidoCreadoTemporalmente && pedidoTemporal) {
+      try { 
+        await eliminarPedido(pedidoTemporal.id_pedido); 
+      } catch (e) { 
+        console.error("Error crítico en Rollback:", e); 
       }
-
     }
-
-    alert(
-      error.message ||
-      "Stock insuficiente"
-    );
-
+    alert(error.message || "Stock insuficiente");
   }
 };
 
 const aumentarCantidad = async (item) => {
   try {
-    await actualizarDetallePedido(
-      pedidoActivo.value.id_pedido,
-      item.id_detalle,
-      item.quantity + 1
-    );
+    await actualizarDetallePedido(pedidoActivo.value.id_pedido, item.id_detalle, item.quantity + 1);
     await cargarPedidoMesa();
   } catch (error) {
-
-    if (
-      pedidoActivo.value &&
-      pedido.value.length === 0
-    ) {
-
-      await eliminarPedido(
-        pedidoActivo.value.id_pedido
-      );
-
-      await updateMesaStatus(
-        mesaSeleccionada.value,
-        "libre"
-      );
-
-      pedidoActivo.value = null;
-    }
-
-    alert(
-      error.message ||
-      "Stock insuficiente"
-    );
+    alert(error.message || "Stock insuficiente");
   }
 };
 
 const removerProducto = async (index) => {
   try {
     const item = pedido.value[index];
-
+    
+    // Si hay más de 1, solo restamos la cantidad.
     if (item.quantity > 1) {
-      await actualizarDetallePedido(
-        pedidoActivo.value.id_pedido,
-        item.id_detalle,
-        item.quantity - 1
-      );
+      await actualizarDetallePedido(pedidoActivo.value.id_pedido, item.id_detalle, item.quantity - 1);
     } else {
-      const res = await eliminarDetallePedido(
-        pedidoActivo.value.id_pedido,
-        item.id_detalle
-      );
-
+      // Si era el último de su tipo, borramos la fila completa del ticket.
+      const res = await eliminarDetallePedido(pedidoActivo.value.id_pedido, item.id_detalle);
+      
+      // Lógica de limpieza: El backend nos avisa (`orderDeleted`) si al borrar este producto, 
+      // el ticket quedó totalmente vacío y por ende fue eliminado. Si es así, liberamos la mesa.
       if (res?.orderDeleted) {
         mesaSeleccionada.value = null;
         await loadMesas();
       }
     }
-
     await cargarPedidoMesa();
   } catch (error) {
     alert("Error al modificar pedido");
   }
 };
 
-// =========================
-// COBRAR
-// =========================
+// ==========================================
+// FINALIZAR TRANSACCIÓN (COBRAR)
+// ==========================================
 const cobrarPedido = async () => {
   try {
     if (!pedidoActivo.value) return;
 
+    // 1. Ejecuta el descuento duro en la bodega (Backend API).
     await descontarInventarioPedido(pedidoActivo.value.id_pedido);
+    
+    // 2. Cambia el estado del pedido a 'cerrado' para que no salga más en el POS.
     await cerrarPedido(pedidoActivo.value.id_pedido);
+    
+    // 3. Verifica si esta venta hizo que se alcanzara la meta diaria.
     await verificarActivacionMadi();
+    
+    // 4. Libera la mesa para nuevos clientes.
     await updateMesaStatus(mesaSeleccionada.value, "libre");
 
+    // 5. Resetea la interfaz del mesero.
     pedido.value = [];
     pedidoActivo.value = null;
     mesaSeleccionada.value = null;
@@ -299,23 +287,37 @@ const cobrarPedido = async () => {
   }
 };
 
-// =========================
-// WATCH / INIT
-// =========================
+// ==========================================
+// CICLO DE VIDA DE VUE (LIFECYCLE HOOKS)
+// ==========================================
+
+// Observador (Watch): Si el mesero hace clic en otra mesa en el select (HTML),
+// disparamos automáticamente la función para cargar el ticket de esa nueva mesa.
 watch(mesaSeleccionada, cargarPedidoMesa);
 
+// onMounted: Se ejecuta una única vez en el milisegundo en que la pantalla se dibuja.
 onMounted(async () => {
+  // Primero cargamos los datos estáticos...
   await loadProductos();
   await loadMesas();
   await loadMadi();
   await cargarPedidoMesa();
+  
+  // ...Y luego encendemos los "radares" para mantenerlos actualizados en vivo.
   iniciarRealtimeProductos();
   iniciarRealtimeMadi();
+  iniciarRealtimePedidos();
+  iniciarRealtimeMesas();
 });
 
+// onUnmounted: Se ejecuta justo antes de que el usuario cambie a otra pantalla.
+// CRÍTICO: Previene "Fugas de Memoria" (Memory Leaks). Destruye las conexiones 
+// de WebSocket para no saturar el servidor ni ralentizar el navegador del usuario.
 onUnmounted(() => {
   if (canalProductos) supabase.removeChannel(canalProductos);
   if (canalMadi) supabase.removeChannel(canalMadi);
+  if (canalPedidos) supabase.removeChannel(canalPedidos);
+  if (canalMesas) supabase.removeChannel(canalMesas);
 });
 </script>
 

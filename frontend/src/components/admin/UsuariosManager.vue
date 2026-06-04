@@ -1,199 +1,122 @@
 <script setup>
 import { ref, onMounted } from "vue";
 
-import { getUsers, createUser, toggleUserStatus, actualizarUsuario, eliminarUsuario }
-from "../../services/usuariosService";
+// Importación de servicios para la manipulación de usuarios contra la API/Base de datos.
+import { 
+  getUsers, 
+  createUser, 
+  toggleUserStatus, 
+  actualizarUsuario, 
+  eliminarUsuario 
+} from "../../services/usuariosService";
 
+// Estado reactivo que almacena el listado de usuarios obtenidos.
 const usuarios = ref([]);
 
+// Estado para controlar qué usuario se está editando actualmente (o null si ninguno).
 const usuarioEditando = ref(null);
 
-const nuevoUsuario =
-  ref({
+// Objeto para manejar los datos del nuevo usuario a crear desde el formulario.
+const nuevoUsuario = ref({
+  email: "",
+  password: "",
+  first_name: "",
+  last_name: "",
+  base_salary: 0,
+  id_role: 3 // Por defecto asignamos el rol 'Mesero'.
+});
 
-    email: "",
+// =========================
+// LÓGICA DE ESTADO
+// =========================
 
-    password: "",
-
-    first_name: "",
-
-    last_name: "",
-
-    base_salary: 0,
-
-    id_role: 3
-
-  });
-
-const cambiarEstado =
-async (usuario) => {
-
-    if (
-    usuario.roles?.role_name ===
-    "admin"
-  ) {
-
-    alert(
-      "No se puede desactivar un administrador"
-    );
-
+// Alterna el estado activo/inactivo de un usuario.
+const cambiarEstado = async (usuario) => {
+  // Validación de seguridad: Previene que un administrador pueda desactivar su propio rol.
+  if (usuario.roles?.role_name === "admin") {
+    alert("No se puede desactivar un administrador");
     return;
-
   }
 
   try {
-
-    await toggleUserStatus(
-
-      usuario.id_user,
-
-      !usuario.active
-
-    );
-
-    await loadUsers();
-
+    await toggleUserStatus(usuario.id_user, !usuario.active);
+    await loadUsers(); // Refresca la lista tras el cambio.
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
 // =========================
-// LOAD USERS
+// LÓGICA DE CARGA
 // =========================
 
-const loadUsers =
-async () => {
-
+// Recupera la lista completa de usuarios del backend.
+const loadUsers = async () => {
   try {
-
-    usuarios.value =
-      await getUsers();
-
+    usuarios.value = await getUsers();
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
 // =========================
-// CREATE USER
+// LÓGICA DE USUARIOS (CRUD)
 // =========================
 
-const crearNuevoUsuario =
-async () => {
-
+// Crea un usuario nuevo y resetea el formulario tras el éxito.
+const crearNuevoUsuario = async () => {
   try {
-
-    await createUser(
-      nuevoUsuario.value
-    );
-
+    await createUser(nuevoUsuario.value);
     await loadUsers();
-
+    
+    // Reinicio del formulario.
     nuevoUsuario.value = {
-
       email: "",
-
       password: "",
-
       first_name: "",
-
       last_name: "",
-
       base_salary: 0,
-
       id_role: 3
-
     };
-
-    alert(
-      "Usuario creado correctamente"
-    );
-
+    alert("Usuario creado correctamente");
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
-const editarUsuario =
-(usuario) => {
-
-  usuarioEditando.value = {
-
-    ...usuario
-
-  };
-
+// Prepara el objeto de edición clonando los datos del usuario seleccionado.
+const editarUsuario = (usuario) => {
+  usuarioEditando.value = { ...usuario };
 };
 
-const guardarEdicion =
-async () => {
-
+// Envía la actualización al backend para los cambios hechos en el modal.
+const guardarEdicion = async () => {
   try {
-
-    await actualizarUsuario(
-      usuarioEditando.value.id_user,
-      usuarioEditando.value
-    );
-
-    usuarioEditando.value =
-      null;
-
+    await actualizarUsuario(usuarioEditando.value.id_user, usuarioEditando.value);
+    usuarioEditando.value = null; // Cierra el modal.
     await loadUsers();
-
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
-const eliminarUsuarioSistema =
-async (usuario) => {
-
+// Ejecuta la eliminación tras solicitar confirmación del usuario.
+const eliminarUsuarioSistema = async (usuario) => {
   try {
+    const confirmar = confirm(`¿Eliminar a ${usuario.first_name} ${usuario.last_name}?`);
+    if (!confirmar) return;
 
-    const confirmar =
-      confirm(
-        `¿Eliminar a ${usuario.first_name} ${usuario.last_name}?`
-      );
-
-    if (!confirmar) {
-      return;
-    }
-
-    await eliminarUsuario(
-      usuario.id_user
-    );
-
+    await eliminarUsuario(usuario.id_user);
     await loadUsers();
-
-    alert(
-      "Usuario eliminado"
-    );
-
+    alert("Usuario eliminado");
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
+// Carga inicial al montar el componente en el DOM.
 onMounted(() => {
-
   loadUsers();
-
 });
 </script>
 

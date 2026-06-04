@@ -7,37 +7,26 @@ import MeseroPOS from "../pages/MeseroPOS.vue";
 
 import { useAuthStore } from "../stores/authStore";
 
+// Definición de rutas con metadatos (meta) para control de acceso.
 const routes = [
   {
     path: "/",
     component: LoginView,
   },
-
   {
     path: "/admin",
     component: AdminDashboard,
-    meta: {
-      requiresAuth: true,
-      role: "admin",
-    },
+    meta: { requiresAuth: true, role: "admin" },
   },
-
   {
     path: "/supervisor",
     component: SupervisorDashboard,
-    meta: {
-      requiresAuth: true,
-      role: "supervisor",
-    },
+    meta: { requiresAuth: true, role: "supervisor" },
   },
-
   {
     path: "/mesero",
     component: MeseroPOS,
-    meta: {
-      requiresAuth: true,
-      role: "mesero",
-    },
+    meta: { requiresAuth: true, role: "mesero" },
   },
 ];
 
@@ -47,55 +36,33 @@ const router = createRouter({
 });
 
 // =========================
-// ROUTE GUARD
+// ROUTE GUARD (Middleware de seguridad)
 // =========================
-
 router.beforeEach((to, from, next) => {
-
   const authStore = useAuthStore();
 
-  // =========================
-  // REQUIRE LOGIN
-  // =========================
-
-  if (
-    to.meta.requiresAuth &&
-    !authStore.isAuthenticated
-  ) {
-
+  // 1. Verificación de Autenticación:
+  // Si la ruta requiere sesión y el usuario no está logueado, redirige al login.
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     return next("/");
-
   }
 
-  // =========================
-  // USER INACTIVO
-  // =========================
-
-  if (
-    authStore.user?.active === false
-  ) {
-
+  // 2. Verificación de Usuario Activo:
+  // Si el usuario en el store está marcado como inactivo, forzamos cierre de sesión.
+  if (authStore.user?.active === false) {
     authStore.logout();
-
     return next("/");
-
   }
 
-  // =========================
-  // REQUIRE ROLE
-  // =========================
-
-  if (
-    to.meta.role &&
-    authStore.role !== to.meta.role
-  ) {
-
+  // 3. Verificación de Rol:
+  // Compara el rol necesario en 'meta' con el rol guardado en el store.
+  // Si no coinciden, bloquea el acceso redirigiendo al home.
+  if (to.meta.role && authStore.role !== to.meta.role) {
     return next("/");
-
   }
 
+  // Si pasa todas las validaciones, permite el acceso.
   next();
-
 });
 
 export default router;

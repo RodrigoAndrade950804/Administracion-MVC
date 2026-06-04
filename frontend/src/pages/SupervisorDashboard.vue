@@ -7,265 +7,132 @@ import { supabase } from "../services/supabase";
 import { getConfiguracionMadi, suscribirConfiguracionMadi } from "../services/madiService";
 import { getMeserosConVentas } from "../services/usuariosService";
 
+// Estados reactivos: mesas activas, ranking de meseros y configuración MADI.
 const mesas = ref([]);
-
 const meseros = ref([]);
-
 const madiConfig = ref(null);
 
+// Canales para las suscripciones Realtime.
 let canalMadi = null;
-
 let canalPedidos = null;
 
+// =========================
+// CARGA DE DATOS
+// =========================
+
 const loadMesas = async () => {
-
   try {
-
     mesas.value = await getMesas();
-
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
-const loadMadi =
-async () => {
-
+const loadMadi = async () => {
   try {
-
     madiConfig.value = await getConfiguracionMadi();
-
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
-const loadRankingMeseros =
-async () => {
-
+// Calcula el ranking de meseros basado en ventas actuales vs meta diaria definida en MADI.
+const loadRankingMeseros = async () => {
   try {
-
     const usuarios = await getMeserosConVentas();
+    const meta = Number(madiConfig.value?.daily_sales_goal || 100);
 
-    const meta =
-      Number(
-        madiConfig.value
-          ?.daily_sales_goal || 100
-      );
+    meseros.value = usuarios.map(usuario => {
+      // Suma total de los montos de pedidos del mesero.
+      const ventas = usuario.pedidos?.reduce((total, pedido) => total + Number(pedido.total_amount), 0) || 0;
+      const porcentaje = (ventas / meta) * 100;
 
-    meseros.value =
-      usuarios.map(usuario => {
+      // Asignación de categoría basada en cumplimiento.
+      let categoria = "Sin Bono";
+      if (porcentaje >= 181) categoria = "Oro";
+      else if (porcentaje >= 151) categoria = "Plata";
+      else if (porcentaje >= 101) categoria = "Bronce";
 
-        const ventas =
-          usuario.pedidos
-            ?.reduce(
-              (total, pedido) =>
-                total +
-                Number(
-                  pedido.total_amount
-                ),
-              0
-            ) || 0;
-
-        const porcentaje = (ventas / meta) * 100;
-
-        let categoria = "Sin Bono";
-
-        if (
-          porcentaje >= 181
-        ) {
-
-          categoria = "Oro";
-
-        }
-
-        else if (
-          porcentaje >= 151
-        ) {
-
-          categoria = "Plata";
-
-        }
-
-        else if (
-          porcentaje >= 101
-        ) {
-
-          categoria = "Bronce";
-
-        }
-
-        return {
-
-          nombre: `${usuario.first_name || ""} ${usuario.last_name || ""}`,
-
-          ventas: Number(ventas || 0),
-
-          porcentaje: Number(porcentaje || 0),
-
-          categoria
-
-        };
-
-      })
-
-      .sort( (a, b) => b.ventas - a.ventas );
-
+      return {
+        nombre: `${usuario.first_name || ""} ${usuario.last_name || ""}`,
+        ventas: Number(ventas || 0),
+        porcentaje: Number(porcentaje || 0),
+        categoria
+      };
+    }).sort((a, b) => b.ventas - a.ventas); // Orden descendente por ventas.
   } catch (error) {
-
     console.error(error);
-
   }
-
 };
 
-const iniciarRealtimePedidos =
-() => {
+// =========================
+// REALTIME (Suscripciones)
+// =========================
 
-  canalPedidos =
-    supabase
-      .channel(
-        "pedidos-realtime"
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "pedidos"
-        },
-        async () => {
-
-          await loadRankingMeseros();
-
-        }
-      )
-      .subscribe();
-
+// Refresca el ranking cuando ocurre cualquier cambio en la tabla de pedidos.
+const iniciarRealtimePedidos = () => {
+  canalPedidos = supabase
+    .channel("pedidos-realtime")
+    .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, async () => {
+      await loadRankingMeseros();
+    })
+    .subscribe();
 };
 
+// Refresca configuraciones y ranking si cambia MADI (ej. cambio de metas o activación).
 const iniciarRealtimeMadi = () => {
-
-  canalMadi =
-    suscribirConfiguracionMadi(
-      async () => {
-
-        await loadMadi();
-
-        await loadRankingMeseros();
-
-      }
-    );
-
+  canalMadi = suscribirConfiguracionMadi(async () => {
+    await loadMadi();
+    await loadRankingMeseros();
+  });
 };
 
+// Refresca el estado de las mesas en tiempo real.
 const iniciarRealtime = () => {
-
   supabase
     .channel("mesas-realtime")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "mesas",
-      },
-      async () => {
-
-        console.log(
-          "Cambio detectado en mesas"
-        );
-
-        await loadMesas();
-
-      }
-    )
+    .on("postgres_changes", { event: "*", schema: "public", table: "mesas" }, async () => {
+      await loadMesas();
+    })
     .subscribe();
-
 };
 
+// Inicialización de datos y suscripciones al montar el componente.
 onMounted(async () => {
-
   await loadMesas();
-
   await loadMadi();
-
   await loadRankingMeseros();
-
   iniciarRealtime();
-
   iniciarRealtimePedidos();
-
   iniciarRealtimeMadi();
-
 });
 
+// Limpieza de canales al destruir el componente para evitar fugas de memoria.
 onUnmounted(() => {
-
-  if (canalPedidos) {
-
-    supabase.removeChannel( canalPedidos );
-
-  }
-
-  if (canalMadi) {
-
-    supabase.removeChannel( canalMadi );
-
-  }
-
+  if (canalPedidos) supabase.removeChannel(canalPedidos);
+  if (canalMadi) supabase.removeChannel(canalMadi);
 });
+
+// =========================
+// UTILIDADES
+// =========================
 
 const router = useRouter();
-
 const authStore = useAuthStore();
 
 const logout = () => {
-
   authStore.logout();
-
   router.push("/");
-
 };
 
-const progresoVentas =
-computed(() => {
-
-  if (!madiConfig.value) {
-
-    return 0;
-    
-  }
-
-  const totalVentas =
-    meseros.value.reduce(
-      (acc, m) =>
-        acc + Number(m.ventas || 0),
-      0
-    );
-
-  const meta =
-    Number(
-      madiConfig.value.daily_sales_goal || 100
-    );
-
-  if (meta <= 0) {
-    return 0;
-  }
-
-  return Math.min(
-    (totalVentas / meta) * 100,
-    100
-  );
-
+// Progreso porcentual de la meta de ventas global para la barra superior.
+const progresoVentas = computed(() => {
+  if (!madiConfig.value) return 0;
+  const totalVentas = meseros.value.reduce((acc, m) => acc + Number(m.ventas || 0), 0);
+  const meta = Number(madiConfig.value.daily_sales_goal || 100);
+  if (meta <= 0) return 0;
+  return Math.min((totalVentas / meta) * 100, 100);
 });
-
 </script>
 
 

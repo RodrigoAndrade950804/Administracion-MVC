@@ -1,3 +1,13 @@
 {
-  "recommendations": ["Vue.volar"]
+  // Lista de identificadores de extensiones recomendadas para este entorno de desarrollo.
+  // VS Code detectará que no tienes estas extensiones instaladas y mostrará un aviso 
+  // en la esquina inferior derecha para instalarlas con un solo clic.
+  "recommendations": [
+    // "Vue.volar" es el identificador de la extensión oficial "Vue - Official" (anteriormente Volar).
+    // Es el estándar actual para desarrollar con Vue 3, proporcionando:
+    // - Autocompletado inteligente (IntelliSense) para plantillas de Vue.
+    // - Soporte completo para TypeScript dentro de los archivos .vue.
+    // - Verificación de errores de sintaxis en tiempo real.
+    "Vue.volar"
+  ]
 }
