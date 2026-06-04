@@ -1,3 +1,4 @@
+
 ```
 AromaGranoSystem
 ├─ backend
@@ -30,7 +31,8 @@ AromaGranoSystem
 │  ├─ package.json
 │  ├─ public
 │  │  ├─ favicon.svg
-│  │  └─ icons.svg
+│  │  ├─ icons.svg
+│  │  └─ _redirects
 │  ├─ README.md
 │  ├─ src
 │  │  ├─ api
@@ -50,6 +52,7 @@ AromaGranoSystem
 │  │  ├─ router
 │  │  │  └─ index.js
 │  │  ├─ services
+│  │  │  ├─ inventarioService.js
 │  │  │  ├─ madiService.js
 │  │  │  ├─ mesasService.js
 │  │  │  ├─ pedidosService.js
