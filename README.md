@@ -1,4 +1,49 @@
+# Enlaces del Proyecto
+
+* Repositorio GitHub:
+
+https://github.com/RodrigoAndrade950804/Administracion-MVC
+
+* Backend:
+
+https://aromagranosystem.onrender.com
+
+* Frontend:
+
+https://aromagranosystem.netlify.app
+
+* Video de Tarea Administración
+
+https://youtu.be/oaqMS9igiBU
+
+* Video de Tarea Core Funcionando
+
+https://youtu.be/Y70Jp4jhfYc
+
+* Video Defensa Del Core
+
+https://youtu.be/z2pX-3N2qXQ
+
+---
+
 # Aroma & Grano ☕
+
+## Usuarios y Contraseñas
+
+### Administrador
+
+  * Usuario: admin@aromagrano.com
+  * Contraseña: admin123
+
+  ### Supervisor
+
+  * Usuario: supervisor@aromagrano.com
+  * Contraseña: supervisor123
+
+  ### Mesero Principal
+
+  * Usuario: mesero@aromagrano.com
+  * Contraseña: mesero123
 
 ## Sistema de Gestión Operativa, POS Reactivo y Business Intelligence
 
@@ -459,22 +504,6 @@ Durante el desarrollo se aplicaron conceptos de:
 * Business Intelligence.
 * Auditoría de inventario.
 * Integración Full Stack.
-
----
-
-# Enlaces del Proyecto
-
-Repositorio GitHub:
-
-https://github.com/RodrigoAndrade950804/Administracion-MVC
-
-Backend:
-
-https://aromagranosystem.onrender.com
-
-Frontend:
-
-https://aromagranosystem.netlify.app
 
 ---
 
