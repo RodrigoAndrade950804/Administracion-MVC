@@ -1,7 +1,8 @@
+import { fetchWithAuth } from "../api/apiClient";
 const API_URL = import.meta.env.VITE_API_URL + "/api/pedidos";
 
 export const crearPedido = async (idMesa, idUser) => {
-  const response = await fetch(API_URL, {
+  const response = await fetchWithAuth(API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id_mesa: idMesa, id_user: idUser })
@@ -11,7 +12,7 @@ export const crearPedido = async (idMesa, idUser) => {
 };
 
 export const obtenerPedidoAbiertoMesa = async (idMesa) => {
-  const response = await fetch(`${API_URL}/mesa/${idMesa}`);
+  const response = await fetchWithAuth(`${API_URL}/mesa/${idMesa}`);
   if (!response.ok) throw new Error("Error obteniendo pedido de mesa");
   const data = await response.json();
   if (data.message === "No hay pedido abierto") return null;
@@ -19,7 +20,7 @@ export const obtenerPedidoAbiertoMesa = async (idMesa) => {
 };
 
 export const agregarProductoPedido = async (idPedido, producto) => {
-  const response = await fetch(`${API_URL}/${idPedido}/agregar`, {
+  const response = await fetchWithAuth(`${API_URL}/${idPedido}/agregar`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id_producto: producto.id_producto, quantity: 1 }),
@@ -31,7 +32,7 @@ export const agregarProductoPedido = async (idPedido, producto) => {
 };
 
 export const actualizarDetallePedido = async (idPedido, idDetalle, quantity) => {
-  const response = await fetch(`${API_URL}/${idPedido}/detalle/${idDetalle}`, {
+  const response = await fetchWithAuth(`${API_URL}/${idPedido}/detalle/${idDetalle}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ quantity }),
@@ -43,7 +44,7 @@ export const actualizarDetallePedido = async (idPedido, idDetalle, quantity) => 
 };
 
 export const eliminarDetallePedido = async (idPedido, idDetalle) => {
-  const response = await fetch(`${API_URL}/${idPedido}/detalle/${idDetalle}`, {
+  const response = await fetchWithAuth(`${API_URL}/${idPedido}/detalle/${idDetalle}`, {
     method: "DELETE",
   });
 
@@ -53,7 +54,7 @@ export const eliminarDetallePedido = async (idPedido, idDetalle) => {
 };
 
 export const eliminarPedido = async (idPedido) => {
-  const response = await fetch(`${API_URL}/${idPedido}`, {
+  const response = await fetchWithAuth(`${API_URL}/${idPedido}`, {
     method: "DELETE",
   });
   if (!response.ok) throw new Error("Error al eliminar pedido");
@@ -61,7 +62,7 @@ export const eliminarPedido = async (idPedido) => {
 };
 
 export const cerrarPedido = async (idPedido) => {
-  const response = await fetch(`${API_URL}/${idPedido}/cerrar`, {
+  const response = await fetchWithAuth(`${API_URL}/${idPedido}/cerrar`, {
     method: "POST",
   });
   if (!response.ok) throw new Error("Error al cerrar pedido");
@@ -69,7 +70,7 @@ export const cerrarPedido = async (idPedido) => {
 };
 
 export const descontarInventarioPedido = async (idPedido) => {
-  const response = await fetch(`${import.meta.env.VITE_API_URL}/api/inventario/pedido/${idPedido}`, {
+  const response = await fetchWithAuth(`${import.meta.env.VITE_API_URL}/api/inventario/pedido/${idPedido}`, {
     method: "POST",
   });
 

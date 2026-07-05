@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { supabase } from "../services/supabase";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/authStore";
+import { fetchWithAuth } from "../api/apiClient";
 
 // Instanciamos las herramientas globales
 const router = useRouter();       // Para navegar programáticamente entre pantallas
@@ -52,7 +53,7 @@ const login = async () => {
     // =========================
     // Supabase Auth solo maneja el "acceso". Ahora cruzamos ese UUID con nuestra
     // tabla pública 'users' para obtener los datos de negocio (nombre, estado, rol).
-    const apiResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/users/perfil/${userId}`);
+    const apiResponse = await fetchWithAuth(`${import.meta.env.VITE_API_URL}/api/users/perfil/${userId}`);
     
     if (!apiResponse.ok) {
       errorMessage.value = "Error obteniendo el perfil del usuario.";

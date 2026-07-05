@@ -71,6 +71,7 @@ export const useAuthStore = defineStore("auth", () => {
     isAuthenticated.value = false;
 
     localStorage.removeItem("auth"); // Elimina la llave para que en la próxima recarga el usuario deba loguearse.
+    supabase.auth.signOut(); // Limpia la sesión de JWT local
   };
 
   // ==========================================

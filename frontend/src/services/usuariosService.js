@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { fetchWithAuth } from "../api/apiClient";
 
 const API_URL = import.meta.env.VITE_API_URL + "/api/users";
 
@@ -11,13 +12,13 @@ const API_URL = import.meta.env.VITE_API_URL + "/api/users";
 
 /** Obtiene el listado completo de usuarios registrados. */
 export const getUsers = async () => {
-  const response = await fetch(API_URL);
+  const response = await fetchWithAuth(API_URL);
   return await response.json();
 };
 
 /** Crea un nuevo usuario en el sistema. */
 export const createUser = async (userData) => {
-  const response = await fetch(API_URL, {
+  const response = await fetchWithAuth(API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(userData)
@@ -27,7 +28,7 @@ export const createUser = async (userData) => {
 
 /** Cambia el estado de un usuario (Activo/Inactivo) mediante un método PATCH (actualización parcial). */
 export const toggleUserStatus = async (id, active) => {
-  const response = await fetch(`${API_URL}/${id}/status`, {
+  const response = await fetchWithAuth(`${API_URL}/${id}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ active })
@@ -37,7 +38,7 @@ export const toggleUserStatus = async (id, active) => {
 
 /** Actualiza toda la información de un usuario. */
 export const actualizarUsuario = async (id, usuario) => {
-  const response = await fetch(`${API_URL}/${id}`, {
+  const response = await fetchWithAuth(`${API_URL}/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(usuario)
@@ -47,7 +48,7 @@ export const actualizarUsuario = async (id, usuario) => {
 
 /** Elimina un usuario de la base de datos. */
 export const eliminarUsuario = async (idUser) => {
-  const response = await fetch(`${API_URL}/${idUser}`, {
+  const response = await fetchWithAuth(`${API_URL}/${idUser}`, {
     method: "DELETE"
   });
   if (!response.ok) throw new Error("Error eliminando usuario");
@@ -66,7 +67,7 @@ export const eliminarUsuario = async (idUser) => {
  * Este enfoque es altamente eficiente al evitar múltiples llamadas al backend.
  */
 export const getMeserosConVentas = async () => {
-  const response = await fetch(`${API_URL}/meseros-ventas`);
+  const response = await fetchWithAuth(`${API_URL}/meseros-ventas`);
   if (!response.ok) throw new Error("Error obteniendo métricas");
   return await response.json();
 };

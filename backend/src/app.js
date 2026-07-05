@@ -17,6 +17,7 @@ import productosRoutes from "./routes/productos.routes.js";
 import mesasRoutes from "./routes/mesas.routes.js";
 import madiRoutes from "./routes/madi.routes.js";
 import happyHourRoutes from "./routes/happy_hour.routes.js";
+import { verifyToken } from "./middlewares/auth.middleware.js";
 
 // Inicialización de la aplicación Express. 
 // 'app' contiene todos los métodos necesarios para levantar rutas, escuchar puertos y configurar middlewares.
@@ -39,21 +40,18 @@ app.use(express.json());
 // =========================================================================
 
 // Acopla el módulo de usuarios bajo el prefijo "/api/users".
-// Ejemplo: Una petición GET a "/api/users/" listará todo el personal.
-app.use("/api/users", usersRoutes);
+// Se añade verifyToken para proteger este y todos los módulos.
+app.use("/api/users", verifyToken, usersRoutes);
 
 // Acopla el módulo de inventarios y movimientos de Kardex bajo el prefijo "/api/inventario".
-// Ejemplo: Una petición POST a "/api/inventario/movimiento" registrará un ajuste de stock.
-app.use("/api/inventario", inventarioRoutes);
+app.use("/api/inventario", verifyToken, inventarioRoutes);
 
 // 2. Usa las rutas de pedidos
-// Centraliza el módulo de operaciones CRUD de detalles de pedidos bajo el prefijo "/api/pedidos".
-// Ejemplo: Una petición POST a "/api/pedidos/45/agregar" inyectará un producto a la comanda 45.
-app.use("/api/pedidos", pedidosRoutes); 
-app.use("/api/productos", productosRoutes);
-app.use("/api/mesas", mesasRoutes);
-app.use("/api/madi", madiRoutes);
-app.use("/api/happy-hour", happyHourRoutes);
+app.use("/api/pedidos", verifyToken, pedidosRoutes); 
+app.use("/api/productos", verifyToken, productosRoutes);
+app.use("/api/mesas", verifyToken, mesasRoutes);
+app.use("/api/madi", verifyToken, madiRoutes);
+app.use("/api/happy-hour", verifyToken, happyHourRoutes);
 
 // Exportación por defecto de la instancia de la aplicación configurada.
 // Siguiendo el principio de separación de conceptos, este archivo solo CONFIGURA la app,
