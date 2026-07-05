@@ -51,7 +51,7 @@ app.use("/api/pedidos", verifyToken, pedidosRoutes);
 app.use("/api/productos", verifyToken, productosRoutes);
 app.use("/api/mesas", verifyToken, mesasRoutes);
 app.use("/api/madi", verifyToken, madiRoutes);
-app.use("/api/happy-hour", verifyToken, happyHourRoutes);
+app.use("/api/happy-hour", happyHourRoutes);
 
 // Exportación por defecto de la instancia de la aplicación configurada.
 // Siguiendo el principio de separación de conceptos, este archivo solo CONFIGURA la app,

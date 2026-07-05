@@ -16,7 +16,7 @@ export const useHappyHourStore = defineStore("happyHour", () => {
   const loadConfig = async () => {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const res = await fetchWithAuth(`${apiUrl}/api/happy-hour/config`);
+      const res = await fetch(`${apiUrl}/api/happy-hour/config`); // Público
       if (res.ok) {
         const data = await res.json();
         if(data) config.value = data;

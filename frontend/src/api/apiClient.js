@@ -32,7 +32,9 @@ export const fetchWithAuth = async (url, options = {}) => {
     console.error("Sesión expirada o token inválido. Cerrando sesión...");
     await supabase.auth.signOut();
     localStorage.removeItem("auth");
-    window.location.href = "/"; // Forzar redirección al login
+    if (window.location.pathname !== "/") {
+      window.location.href = "/"; // Forzar redirección al login
+    }
   }
 
   return response;
