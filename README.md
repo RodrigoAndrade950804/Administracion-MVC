@@ -299,6 +299,18 @@ supabase
 
 ---
 
+## Facade Pattern
+Implementado en los Controladores del Backend.
+El frontend consume un único endpoint simple (ej. `POST /api/pedidos/cerrar`), y la Fachada (Controlador) se encarga de orquestar la lógica compleja internamente: descontar inventario, actualizar metas MADI y liberar la mesa física.
+
+---
+
+## Singleton Pattern
+Implementado en la gestión de WebSockets en el frontend (`happyHourStore.js`).
+Garantiza que solo exista una única conexión viva al canal de Supabase Realtime, evitando colisiones, cierres inesperados y fugas de memoria al navegar entre pantallas reactivas.
+
+---
+
 ## State Management Pattern
 Implementado mediante Pinia.
 Permite compartir información entre componentes sin Prop Drilling.
@@ -361,7 +373,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 ## Frontend (.env)
 ```env
-VITE_API_URL=http://localhost:3000/api
+VITE_API_URL=http://localhost:3000
 VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
 VITE_SUPABASE_ANON_KEY=
 ```

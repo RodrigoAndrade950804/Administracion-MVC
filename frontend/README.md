@@ -47,7 +47,7 @@ El frontend tiene **doble comunicación**:
 
 2. Configurar las variables en el archivo `.env`:
    ```env
-   VITE_API_URL=http://localhost:3000/api
+   VITE_API_URL=http://localhost:3000
    VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
    VITE_SUPABASE_ANON_KEY=tu_anon_key
    ```

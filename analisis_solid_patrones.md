@@ -1,135 +1,130 @@
-# Análisis de Arquitectura: Mejores Prácticas, Principios SOLID y Patrones de Diseño
+# Análisis de Arquitectura: Implementación de Principios SOLID y Patrones de Diseño
 
-El presente documento analiza la estructura actual del proyecto **AromaGrano System** (desarrollado con Vue 3, Vite y Supabase) y propone la implementación de mejores prácticas, principios SOLID y Patrones de Diseño de Software para escalar, mantener y probar la aplicación con mayor facilidad.
-
----
-
-## 1. Identificación de Oportunidades de Mejora
-
-Actualmente, el sistema funciona de manera eficiente y utiliza tecnologías modernas. Sin embargo, al inspeccionar componentes complejos como `MeseroPOS.vue` o `AdminDashboard.vue`, se identifican las siguientes áreas de oportunidad:
-
-1. **Alta mezcla de responsabilidades en la UI:** Los componentes de Vue están manejando la presentación (HTML/CSS), el estado global, la lógica de negocio (cálculo de metas, bonos) y las peticiones directas a la base de datos (servicios).
-2. **Fuerte acoplamiento con la infraestructura (BaaS):** Los servicios (ej. `pedidos.service.js`) importan directamente el cliente de `Supabase` y ejecutan consultas SQL-like. Si en el futuro se desea cambiar la base de datos o hacer pruebas unitarias, el esfuerzo de refactorización sería masivo.
-3. **Orquestación compleja en la vista:** Procesos como "Cobrar un Pedido" requieren múltiples pasos (descontar inventario, cerrar pedido, calcular meta del mesero, liberar mesa). Actualmente el componente de UI orquesta todos estos pasos manualmente.
+El presente documento analiza la estructura final del proyecto **AromaGrano System** (desarrollado con una arquitectura híbrida MVC + BaaS) y detalla la **implementación exitosa** de las mejores prácticas, principios SOLID y Patrones de Diseño de Software exigidos por la rúbrica del proyecto.
 
 ---
 
-## 2. Propuesta de Principios SOLID a Implementar
+## 1. Principios SOLID Aplicados
 
 ### A. Principio de Responsabilidad Única (SRP - Single Responsibility Principle)
-**Problema actual:** `MeseroPOS.vue` gestiona la lógica del carrito de compras, el cálculo de métricas MADI (Happy Hour) y la suscripción a WebSockets.
-**Propuesta:** Extraer la lógica del negocio hacia **Composables** de Vue (ej. `useCart()`, `useCheckout()`) o **Stores de Pinia**. El componente `.vue` debe limitarse únicamente a reaccionar a los eventos del usuario (clics) y renderizar variables.
+**Implementación:** El sistema ha sido desacoplado de manera que cada módulo tiene una única razón para cambiar.
+*   **Capa de Presentación (Vue.js):** Archivos como `MeseroPOS.vue` o `SupervisorDashboard.vue` se encargan estrictamente de renderizar la interfaz de usuario y reaccionar a los clics.
+*   **Capa de Estado (Pinia):** Archivos como `happyHourStore.js` aíslan y manejan globalmente variables como el estado del MADI.
+*   **Capa de Servicios:** Archivos como `pedidosService.js` abstraen por completo el consumo de la API REST. El componente visual no sabe cómo se comunica con la base de datos, solo llama a la función de servicio.
 
-### B. Principio de Inversión de Dependencias (DIP - Dependency Inversion Principle)
-**Problema actual:** La lógica de la aplicación depende de implementaciones concretas (Supabase).
-**Propuesta:** Los componentes deben depender de abstracciones (interfaces), no de detalles. Se debe inyectar un servicio genérico de "Base de Datos" en lugar de importar Supabase directamente en cada archivo.
+### B. Separación de Intereses (SoC - Separation of Concerns)
+**Implementación:** En el backend desarrollado en Node.js, la lógica no se programó en un solo archivo masivo. La aplicación está dividida en:
+*   `routes`: Definen únicamente los endpoints (ej. `/api/pedidos`).
+*   `controllers`: Reciben la petición HTTP, validan y devuelven respuestas JSON.
+*   `services`: Ejecutan la lógica pesada transaccional y se conectan a la base de datos (PostgreSQL).
 
 ---
 
-## 3. Patrones de Diseño Propuestos
+## 2. Patrones de Diseño Implementados
 
-Para materializar los principios SOLID mencionados, proponemos implementar los siguientes **Patrones de Diseño Estructurales y de Comportamiento**.
+### 2.1. Patrón Observer (Observador) mediante WebSockets
+**Justificación:** El sistema requiere que múltiples usuarios (Meseros, Supervisores) estén sincronizados en tiempo real sin recargar la página.
+**Implementación:** Se utilizó **Supabase Realtime**, el cual es una implementación nativa del patrón Observer. 
+*   **El Sujeto (Subject):** Es la base de datos PostgreSQL. Cuando el backend actualiza una tabla (ej. `configuracion_happy_hour` o `mesas`), el motor emite un evento de cambio (broadcast).
+*   **Los Observadores (Observers):** Son los clientes Vue.js conectados (ej. pantallas de los meseros). Al estar "suscritos" al canal (`.subscribe()`), reaccionan automáticamente al evento y actualizan su estado (activando el "Modo Neón" o cambiando el color de una mesa a ocupada).
 
-### 3.1. Patrón Repository (Repositorio) + Adapter (Adaptador)
-**Justificación:** Al aplicar el Patrón Repositorio, creamos una capa de abstracción entre la lógica de negocio y la fuente de datos (Supabase). Esto cumple con el Principio de Inversión de Dependencias (DIP). Si mañana el negocio decide migrar de Supabase a un backend propio en Node.js o Firebase, solo se debe crear un nuevo "Adaptador" que cumpla con el contrato del Repositorio, sin tocar ni una sola línea de código en las pantallas de Vue.
-
-#### Diseño UML (Patrón Repository)
+#### Diseño UML (Patrón Observer)
 
 ```mermaid
 classDiagram
     direction TB
-    class PedidoController {
-      <<Vue Component>>
-      + cobrarPedido(id: int)
+    class SupabaseRealtime {
+      <<Subject / Emisor>>
+      - clientesConectados: List
+      + updateTable(tabla, data)
+      + broadcastEvent(payload)
     }
     
-    class IPedidoRepository {
+    class IObserver {
       <<Interface>>
-      + obtenerPedido(id: int)
-      + actualizarEstado(id: int, estado: String)
-      + cerrarPedido(id: int)
+      + onPostgresChange(payload)
     }
     
-    class SupabasePedidoRepository {
-      - supabaseClient: SupabaseClient
-      + obtenerPedido(id: int)
-      + actualizarEstado(id: int, estado: String)
-      + cerrarPedido(id: int)
+    class MeseroPOS {
+      <<Observer>>
+      + onPostgresChange(payload)
+      + activarModoNeon()
     }
     
-    class FirebasePedidoRepository {
-      - firestoreClient: FirebaseClient
-      + obtenerPedido(id: int)
-      + actualizarEstado(id: int, estado: String)
-      + cerrarPedido(id: int)
-    }
-    
-    class PedidoService {
-      - repository: IPedidoRepository
-      + procesarCobro(id: int)
+    class SupervisorDashboard {
+      <<Observer>>
+      + onPostgresChange(payload)
+      + actualizarMapaMesas()
     }
 
-    PedidoController --> PedidoService : usa
-    PedidoService --> IPedidoRepository : inyecta abstracción
-    SupabasePedidoRepository ..|> IPedidoRepository : implementa
-    FirebasePedidoRepository ..|> IPedidoRepository : implementa
+    SupabaseRealtime --> IObserver : notifica (broadcast)
+    MeseroPOS ..|> IObserver : implementa
+    SupervisorDashboard ..|> IObserver : implementa
 ```
 
 ---
 
-### 3.2. Patrón Facade (Fachada)
-**Justificación:** Procesos transaccionales como "Cerrar Pedido" requieren comunicarse con el Servicio de Pedidos, el Servicio de Inventario, el Servicio de Mesas y el Servicio de Usuarios (para el bono). Exponer esta complejidad al componente de Vue rompe el principio de Responsabilidad Única (SRP). 
-Una **Fachada (Facade)** proporcionará una única función unificada (`checkoutFacade.procesarPago()`) que internamente orquestará todos los subsistemas. El frontend solo llamará a la fachada y recibirá un éxito o un error.
+### 2.2. Patrón Facade (Fachada) en Controladores Backend
+**Justificación:** Procesos transaccionales como "Cobrar Pedido" en la cafetería requieren orquestar múltiples subsistemas a la vez: actualizar el estado del pedido, descontar stock del inventario, sumar la venta al desempeño del mesero y liberar la mesa física. Exponer esta complejidad al frontend es un riesgo de seguridad y viabilidad.
+**Implementación:** Se creó un controlador central (`pedidos.controller.js`) que actúa como Fachada. El Frontend hace una única petición REST simple (`POST /api/pedidos/cerrar`). Internamente, la Fachada orquesta las llamadas a todos los servicios de dominio necesarios y devuelve una respuesta consolidada.
 
 #### Diseño UML (Patrón Facade)
 
 ```mermaid
 classDiagram
-    class MeseroPOS_Vue {
-      <<UI>>
-      + clickCobrar()
+    class ClienteVueJS {
+      <<Frontend>>
+      + fetch("/api/pedidos/cerrar")
     }
     
-    class CheckoutFacade {
+    class PedidosController {
       <<Facade>>
-      + procesarPagoYLiberarMesa(pedidoId, mesaId)
+      + cerrarPedidoYOrquestar(req, res)
     }
     
     class InventarioService {
       <<Subsystem>>
-      + descontarStock(pedidoId)
+      + descontarInsumos(pedidoId)
     }
     
-    class PedidoService {
+    class MesasService {
       <<Subsystem>>
-      + cerrarPedido(pedidoId)
+      + liberarMesaFisica(mesaId)
     }
     
-    class MesaService {
+    class MadiService {
       <<Subsystem>>
-      + updateStatus(mesaId, status)
-    }
-    
-    class UsuarioService {
-       <<Subsystem>>
-       + calcularBono(meseroId, monto)
+      + recalcularProgresoMesero(meseroId, monto)
     }
 
-    MeseroPOS_Vue --> CheckoutFacade : llama método simple
-    CheckoutFacade --> InventarioService : orquesta 1
-    CheckoutFacade --> PedidoService : orquesta 2
-    CheckoutFacade --> MesaService : orquesta 3
-    CheckoutFacade --> UsuarioService : orquesta 4
+    ClienteVueJS --> PedidosController : 1. Llama método simple
+    PedidosController --> InventarioService : 2. Orquesta Inventario
+    PedidosController --> MesasService : 3. Orquesta Mesa
+    PedidosController --> MadiService : 4. Orquesta Gamificación
 ```
 
 ---
 
-### 3.3. Patrón Observer (Observador) a través de Event Bus / Pinia
-**Justificación:** Supabase Realtime utiliza nativamente el patrón Observer. Sin embargo, en el código actual los componentes montan y desmontan las escuchas. Se propone centralizar las suscripciones WebSocket en un Store de Pinia (`useRealtimeStore`). El Store actuará como el "Sujeto Observado" y los múltiples componentes de la aplicación actuarán como "Observadores" que reaccionan automáticamente a los cambios de estado reactivo, centralizando la lógica de reconexión y evitando fugas de memoria.
+### 2.3. Patrón Singleton (Instancia Única) en Gestor de WebSockets
+**Justificación:** Al navegar entre diferentes pantallas reactivas (ej. cambiar de Mesero a Supervisor), los componentes intentaban reconectarse a los WebSockets (`postgres_changes`), lo que causaba colisiones ("cannot add callbacks after subscribe") y crasheos en la aplicación.
+**Implementación:** Se aplicó un patrón **Singleton** (o control de instancia única) en el store de Pinia (`happyHourStore.js`). Antes de intentar abrir un canal de Supabase Realtime, el sistema verifica si la variable `canal` ya tiene una conexión activa. Si ya existe, aborta la reconexión y reutiliza la instancia existente, garantizando una sola conexión global segura a lo largo de toda la sesión del usuario.
 
-## 4. Conclusión
+#### Diseño UML (Patrón Singleton)
 
-La implementación de los patrones **Repository**, **Facade** y **Observer** alineará el proyecto AromaGrano System con los principios SOLID (particularmente SRP y DIP). Esto convertirá la aplicación en un sistema de clase empresarial, en el cual:
-1. La Interfaz de Usuario (Vue) sea "tonta" y solo se dedique a pintar datos (Separación de intereses).
-2. Las pruebas unitarias (*Unit Testing*) puedan realizarse con *mocks* de los repositorios sin requerir conexión a internet.
-3. El mantenimiento y evolución del sistema sean ágiles y seguros ante la rotación de desarrolladores.
+```mermaid
+classDiagram
+    class HappyHourStore {
+      <<Singleton / Store>>
+      - canal: RealtimeChannel (static)
+      + iniciarRealtimeHappyHour()
+    }
+    
+    note for HappyHourStore "if (canal) return;\ncanal = supabase.channel(...).subscribe();"
+```
+
+---
+
+## 3. Conclusión
+
+AromaGrano System no solo es un sistema funcional, sino que su arquitectura final evidencia la aplicación estricta del **Proceso de Diseño de Ingeniería**.
+Al migrar del modelo monolítico inicial hacia una arquitectura desacoplada basada en API REST y frameworks reactivos (Vue 3), se logró inyectar exitosamente los patrones **Observer**, **Facade** y **Singleton**, respetando íntegramente el principio **SRP** (Responsabilidad Única) y **SoC**. El resultado es un producto escalable, seguro y altamente optimizado contra colisiones y redundancias.
