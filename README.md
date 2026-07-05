@@ -1,27 +1,21 @@
 # Enlaces del Proyecto
 
 * Repositorio GitHub:
-
 https://github.com/RodrigoAndrade950804/Administracion-MVC
 
 * Backend:
-
 https://aromagranosystem.onrender.com
 
 * Frontend:
-
 https://aromagranosystem.netlify.app
 
 * Video de Tarea Administración
-
 https://youtu.be/oaqMS9igiBU
 
 * Video de Tarea Core Funcionando
-
 https://youtu.be/Y70Jp4jhfYc
 
 * Video Defensa Del Core
-
 https://youtu.be/z2pX-3N2qXQ
 
 ---
@@ -31,19 +25,16 @@ https://youtu.be/z2pX-3N2qXQ
 ## Usuarios y Contraseñas
 
 ### Administrador
+* Usuario: admin@aromagrano.com
+* Contraseña: admin123
 
-  * Usuario: admin@aromagrano.com
-  * Contraseña: admin123
+### Supervisor
+* Usuario: supervisor@aromagrano.com
+* Contraseña: supervisor123
 
-  ### Supervisor
-
-  * Usuario: supervisor@aromagrano.com
-  * Contraseña: supervisor123
-
-  ### Mesero Principal
-
-  * Usuario: mesero@aromagrano.com
-  * Contraseña: mesero123
+### Mesero Principal
+* Usuario: mesero@aromagrano.com
+* Contraseña: mesero123
 
 ## Sistema de Gestión Operativa, POS Reactivo y Business Intelligence
 
@@ -60,7 +51,6 @@ El sistema fue desarrollado utilizando una arquitectura híbrida MVC + BaaS, com
 El sistema se compone de tres capas principales:
 
 ### Frontend (SPA)
-
 * Vue 3 (Composition API)
 * Pinia
 * Vue Router
@@ -68,7 +58,6 @@ El sistema se compone de tres capas principales:
 * Supabase Client
 
 Responsabilidades:
-
 * Interfaz de usuario.
 * Gestión reactiva del estado.
 * Consumo de APIs REST.
@@ -79,21 +68,16 @@ Responsabilidades:
 ### Backend (MVC)
 
 #### Controllers
-
 Gestionan la lógica de negocio:
-
 * Usuarios
 * Inventario
 * Pedidos
 
 #### Routes
-
 Definen los endpoints REST.
 
 #### Services
-
 Gestionan:
-
 * Conexiones privilegiadas con Supabase
 * Operaciones administrativas
 * Integraciones
@@ -101,9 +85,7 @@ Gestionan:
 ---
 
 ### Base de Datos (BaaS)
-
 Supabase PostgreSQL:
-
 * Persistencia de datos
 * Realtime (WebSockets)
 * Seguridad
@@ -115,14 +97,12 @@ Supabase PostgreSQL:
 # Tecnologías Utilizadas
 
 ## Backend
-
 * Node.js
 * Express.js
 * Supabase
 * PostgreSQL
 
 ## Frontend
-
 * Vue.js 3
 * Pinia
 * Vue Router
@@ -130,7 +110,6 @@ Supabase PostgreSQL:
 * Vite
 
 ## Infraestructura
-
 * Netlify (Frontend)
 * Render (Backend)
 * Supabase Cloud (Base de Datos)
@@ -140,7 +119,6 @@ Supabase PostgreSQL:
 # Funcionalidades Principales
 
 ## Gestión de Usuarios
-
 * Registro de usuarios.
 * Edición de perfiles.
 * Activación y desactivación de cuentas.
@@ -150,7 +128,6 @@ Supabase PostgreSQL:
 ---
 
 ## Gestión de Productos
-
 * CRUD completo.
 * Control de precios.
 * Gestión de stock.
@@ -159,7 +136,6 @@ Supabase PostgreSQL:
 ---
 
 ## Gestión de Inventario
-
 * Entradas de inventario.
 * Salidas de inventario.
 * Mermas.
@@ -169,7 +145,6 @@ Supabase PostgreSQL:
 ---
 
 ## Sistema POS
-
 * Apertura de mesas.
 * Gestión de pedidos.
 * Agregado de productos.
@@ -181,7 +156,6 @@ Supabase PostgreSQL:
 ---
 
 ## Gestión de Mesas
-
 * Estado libre.
 * Estado ocupada.
 * Actualización en tiempo real.
@@ -190,7 +164,6 @@ Supabase PostgreSQL:
 ---
 
 ## Módulo Business Intelligence (MADI)
-
 * Seguimiento de ventas por mesero.
 * Cálculo de cumplimiento de metas.
 * Clasificación por niveles.
@@ -202,9 +175,7 @@ Supabase PostgreSQL:
 # Característica Diferenciadora
 
 ## Sincronización Multiusuario en Tiempo Real
-
 El sistema utiliza Supabase Realtime para sincronizar automáticamente:
-
 * Mesas
 * Pedidos
 * Detalles de pedidos
@@ -214,7 +185,6 @@ El sistema utiliza Supabase Realtime para sincronizar automáticamente:
 Esto permite que múltiples empleados trabajen simultáneamente sobre la misma información sin necesidad de recargar la aplicación.
 
 Ejemplos:
-
 * Un mesero abre una mesa y todos los demás la ven ocupada instantáneamente.
 * Un administrador desactiva un usuario y la sesión se cierra automáticamente.
 * Un pedido se modifica y los cambios aparecen en todos los dispositivos conectados.
@@ -224,7 +194,6 @@ Ejemplos:
 # Flujo Principal del Sistema
 
 ## Núcleo Operativo
-
 1. El mesero selecciona una mesa.
 2. El sistema crea un pedido asociado.
 3. El usuario agrega productos.
@@ -251,24 +220,20 @@ Ejemplos:
 # Seguridad Implementada
 
 ## Control de Acceso Basado en Roles (RBAC)
-
 Cada usuario posee permisos asociados a su rol.
 
 ### Administrador
-
 * Usuarios
 * Productos
 * Inventario
 * Configuración MADI
 
 ### Supervisor
-
 * Consultas
 * Métricas
 * Desempeño
 
 ### Mesero
-
 * POS
 * Pedidos
 * Mesas
@@ -276,9 +241,7 @@ Cada usuario posee permisos asociados a su rol.
 ---
 
 ## Kill-Switch de Seguridad
-
 Cuando un administrador desactiva una cuenta:
-
 1. Se actualiza el registro en la base de datos.
 2. Supabase Realtime envía un evento.
 3. El cliente recibe la notificación.
@@ -290,17 +253,14 @@ Cuando un administrador desactiva una cuenta:
 # Patrones y Principios Aplicados
 
 ## Single Responsibility Principle (SRP)
-
 Cada módulo tiene una responsabilidad específica.
 
 ### Frontend
-
 * Components → UI
 * Services → API
 * Stores → Estado global
 
 ### Backend
-
 * Routes → Enrutamiento
 * Controllers → Lógica
 * Services → Acceso a datos
@@ -308,9 +268,7 @@ Cada módulo tiene una responsabilidad específica.
 ---
 
 ## Separation of Concerns (SoC)
-
 Separación clara entre:
-
 * Presentación
 * Negocio
 * Persistencia
@@ -318,13 +276,10 @@ Separación clara entre:
 ---
 
 ## Observer Pattern
-
 Implementado mediante Supabase Realtime.
-
 Los clientes reaccionan automáticamente ante cambios en la base de datos.
 
 Ejemplo:
-
 ```javascript
 supabase
   .channel("users")
@@ -345,19 +300,15 @@ supabase
 ---
 
 ## State Management Pattern
-
 Implementado mediante Pinia.
-
 Permite compartir información entre componentes sin Prop Drilling.
 
 ---
 
 ## Audit Trail Pattern
-
 Cada movimiento de inventario genera un registro histórico.
 
 Beneficios:
-
 * Trazabilidad.
 * Auditoría.
 * Recuperación de información.
@@ -367,166 +318,59 @@ Beneficios:
 
 # Beneficios del Sistema
 
-## Consistencia de Datos
-
-Todos los usuarios observan la misma información en tiempo real.
-
----
-
-## Escalabilidad
-
-La separación de responsabilidades facilita el mantenimiento y crecimiento del sistema.
-
----
-
-## Seguridad
-
-La invalidación inmediata de sesiones reduce riesgos operativos.
-
----
-
-## Auditoría
-
-Todos los movimientos importantes quedan registrados.
-
----
-
-## Mantenibilidad
-
-La arquitectura desacoplada permite modificar módulos sin afectar el resto del sistema.
+* **Consistencia de Datos:** Todos los usuarios observan la misma información en tiempo real.
+* **Escalabilidad:** La separación de responsabilidades facilita el mantenimiento y crecimiento del sistema.
+* **Seguridad:** La invalidación inmediata de sesiones reduce riesgos operativos.
+* **Auditoría:** Todos los movimientos importantes quedan registrados.
+* **Mantenibilidad:** La arquitectura desacoplada permite modificar módulos sin afectar el resto del sistema.
 
 ---
 
 # Instalación
 
 ## Backend
-
 ```bash
 cd backend
 npm install
 npm run dev
 ```
-
-Servidor:
-
-```bash
-http://localhost:3000
-```
+Servidor: `http://localhost:3000`
 
 ---
 
 ## Frontend
-
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-
-Aplicación:
-
-```bash
-http://localhost:5173
-```
+Aplicación: `http://localhost:5173`
 
 ---
 
 # Variables de Entorno
 
 ## Backend (.env)
-
 ```env
 PORT=3000
-
 SUPABASE_URL=https://tu-proyecto.supabase.co
-
-SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_SERVICE_ROLE_KEY=
 ```
 
 ---
 
 ## Frontend (.env)
-
 ```env
 VITE_API_URL=http://localhost:3000/api
-
 VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
-
-VITE_SUPABASE_ANON_KEY
+VITE_SUPABASE_ANON_KEY=
 ```
 
 ---
-
-# Estructura del Proyecto
-
-```plaintext
-AromaGranoSystem
-├─ backend
-│  ├─ src
-│  │  ├─ controllers
-│  │  ├─ routes
-│  │  ├─ services
-│  │  ├─ config
-│  │  ├─ validations
-│  │  └─ utils
-│  ├─ package.json
-│  └─ .env
-│
-├─ frontend
-│  ├─ src
-│  │  ├─ components
-│  │  ├─ pages
-│  │  ├─ services
-│  │  ├─ stores
-│  │  ├─ router
-│  │  └─ layouts
-│  ├─ public
-│  ├─ package.json
-│  └─ .env
-│
-└─ README.md
-```
-
----
-
-# Aprendizajes del Proyecto
-
-Durante el desarrollo se aplicaron conceptos de:
-
-* Arquitectura MVC.
-* Arquitectura SPA.
-* REST API.
-* PostgreSQL.
-* Supabase Realtime.
-* Gestión de estado con Pinia.
-* WebSockets.
-* Control de acceso por roles.
-* Business Intelligence.
-* Auditoría de inventario.
-* Integración Full Stack.
-
----
-
-# Autor
-
-**Rodrigo Andrade**
-
-Universidad de Las Américas (UDLA)
-
-Ingeniería de Software
-
-2025
-
----
-
-# Conclusión
-
-Aroma & Grano demuestra la implementación práctica de una arquitectura híbrida MVC + BaaS capaz de soportar operaciones concurrentes en tiempo real, control de inventario auditado, procesamiento de pedidos y generación de métricas empresariales, integrando tecnologías modernas de desarrollo Full Stack en un entorno productivo.
 
 # Estructura Final
 
-
-```
+```plaintext
 AromaGranoSystem
 ├─ backend
 │  ├─ .env
@@ -568,16 +412,6 @@ AromaGranoSystem
 ├─ frontend
 │  ├─ .env
 │  ├─ dist
-│  │  ├─ assets
-│  │  │  ├─ html2canvas-CA1oGWsJ.js
-│  │  │  ├─ index-BEHSztDB.css
-│  │  │  ├─ index-CMf6P6dl.js
-│  │  │  ├─ index.es-DttPqi2K.js
-│  │  │  └─ purify.es-Bu4Grnl0.js
-│  │  ├─ favicon.svg
-│  │  ├─ icons.svg
-│  │  ├─ index.html
-│  │  └─ _redirects
 │  ├─ index.html
 │  ├─ package-lock.json
 │  ├─ package.json
@@ -620,5 +454,33 @@ AromaGranoSystem
 │  │  └─ utils
 │  └─ vite.config.js
 └─ README.md
-
 ```
+
+---
+
+# Aprendizajes del Proyecto
+Durante el desarrollo se aplicaron conceptos de:
+* Arquitectura MVC.
+* Arquitectura SPA.
+* REST API.
+* PostgreSQL.
+* Supabase Realtime.
+* Gestión de estado con Pinia.
+* WebSockets.
+* Control de acceso por roles.
+* Business Intelligence.
+* Auditoría de inventario.
+* Integración Full Stack.
+
+---
+
+# Autor
+**Rodrigo Andrade**  
+Universidad de Las Américas (UDLA)  
+Ingeniería de Software  
+2025
+
+---
+
+# Conclusión
+Aroma & Grano demuestra la implementación práctica de una arquitectura híbrida MVC + BaaS capaz de soportar operaciones concurrentes en tiempo real, control de inventario auditado, procesamiento de pedidos y generación de métricas empresariales, integrando tecnologías modernas de desarrollo Full Stack en un entorno productivo.
