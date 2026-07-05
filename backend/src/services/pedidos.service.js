@@ -1,69 +1,273 @@
-// Importación del cliente administrativo de Supabase con privilegios elevados (Bypass RLS).
 import supabaseAdmin from "./supabaseAdmin.js";
 
-/**
- * Servicio encargado de procesar el cierre definitivo y seguro de un pedido.
- * Centraliza la lógica de negocio en el backend para evitar alteraciones o manipulaciones 
- * malintencionadas de precios o montos desde el cliente (frontend).
- * * @param {string|number} idPedido - El identificador único del pedido que se va a clausurar.
- * @returns {Object} El objeto del pedido actualizado con su nuevo estado y montos consolidados.
- */
-export const cerrarPedidoSeguroService = async (idPedido) => {
-  
-  // =========================================================================
-  // 1️⃣ OBTENER DETALLES DEL PEDIDO
-  // =========================================================================
-  // Se realiza una consulta dirigida a la tabla 'detalle_pedidos' para extraer la información
-  // crítica de cada artículo asociado: el ID del producto, las unidades y el subtotal acumulado.
-  const { data: detalles, error: detallesError } = await supabaseAdmin
+// =========================================================================
+// FUNCIÓN UTILITARIA INTERNA
+// =========================================================================
+const recalcularYActualizarTotal = async (idPedido) => {
+  const { data: detalles, error } = await supabaseAdmin
     .from("detalle_pedidos")
-    .select("id_producto, cantidad, subtotal") // Selección estricta de columnas necesarias
-    .eq("pedido_id", idPedido); // Filtro relacional condicional WHERE pedido_id = idPedido
+    .select(`subtotal, is_madi_applied`)
+    .eq("id_pedido", idPedido);
 
-  // Control de flujo: Si la consulta a la base de datos falla, se lanza el error inmediatamente
-  // para que sea capturado por el bloque 'catch' del controlador que invoque este servicio.
+  if (error) throw error;
+
+  const nuevoTotal = detalles.reduce((acc, item) => acc + Number(item.subtotal), 0);
+  const tieneMadi = detalles.some(item => item.is_madi_applied);
+
+  const { error: errorUpdate } = await supabaseAdmin
+    .from("pedidos")
+    .update({
+      total_amount: nuevoTotal,
+      madi_applied: tieneMadi
+    })
+    .eq("id_pedido", idPedido);
+
+  if (errorUpdate) throw errorUpdate;
+
+  return nuevoTotal;
+};
+
+// =========================================================================
+// SERVICIOS EXPORTADOS
+// =========================================================================
+
+export const crearPedidoService = async (id_mesa, id_user) => {
+  const { data, error } = await supabaseAdmin
+    .from("pedidos")
+    .insert([{ id_mesa, id_user, status: "abierto", total_amount: 0 }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const obtenerPedidoMesaService = async (id_mesa) => {
+  const { data, error } = await supabaseAdmin
+    .from("pedidos")
+    .select(`
+      *,
+      detalle_pedidos (
+        *,
+        productos (*)
+      )
+    `)
+    .eq("id_mesa", id_mesa)
+    .eq("status", "abierto")
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+};
+
+export const eliminarPedidoService = async (idPedido) => {
+  const { error } = await supabaseAdmin
+    .from("pedidos")
+    .delete()
+    .eq("id_pedido", idPedido);
+
+  if (error) throw error;
+  return true;
+};
+
+export const agregarProductoPedidoService = async (idPedido, id_producto, quantity = 1) => {
+  const { data: producto, error: errorProducto } = await supabaseAdmin
+    .from("productos")
+    .select("sale_price, stock")
+    .eq("id_producto", id_producto)
+    .single();
+
+  if (errorProducto || !producto) throw Object.assign(new Error("Producto no encontrado"), { status: 404 });
+
+  const { data: detallesExistentes } = await supabaseAdmin
+    .from("detalle_pedidos")
+    .select("quantity")
+    .eq("id_pedido", idPedido)
+    .eq("id_producto", id_producto);
+
+  const cantidadYaPedida = detallesExistentes?.reduce((sum, d) => sum + d.quantity, 0) || 0;
+
+  if (producto.stock < cantidadYaPedida + quantity) {
+    throw Object.assign(new Error("Stock insuficiente"), { status: 400, disponible: producto.stock - cantidadYaPedida });
+  }
+
+  const { data: happyHour } = await supabaseAdmin
+    .from("configuracion_happy_hour")
+    .select("is_active, discount_percentage")
+    .single();
+
+  const baseUnitPrice = Number(producto.sale_price);
+  let precioBase = Number(producto.sale_price);
+  let finalUnitPrice = precioBase;
+  let isMadiApplied = false; // Mantenemos el nombre de la columna para retrocompatibilidad
+  let madiDiscount = 0;
+
+  if (happyHour?.is_active && happyHour.discount_percentage > 0) {
+    madiDiscount = Number(happyHour.discount_percentage);
+    finalUnitPrice = precioBase - (precioBase * madiDiscount / 100);
+    isMadiApplied = true;
+  }
+
+  const { data: detalle, error: errorDetalle } = await supabaseAdmin
+    .from("detalle_pedidos")
+    .insert([{
+      id_pedido: idPedido,
+      id_producto,
+      quantity,
+      base_unit_price: baseUnitPrice,
+      final_unit_price: finalUnitPrice,
+      subtotal: finalUnitPrice * quantity,
+      is_madi_applied: isMadiApplied,
+      madi_discount_percentage: madiDiscount
+    }])
+    .select()
+    .single();
+
+  if (errorDetalle) throw errorDetalle;
+
+  const nuevoTotal = await recalcularYActualizarTotal(idPedido);
+
+  return { detalle, nuevoTotal };
+};
+
+export const actualizarCantidadDetalleService = async (idPedido, idDetalle, quantity) => {
+  if (quantity <= 0) throw Object.assign(new Error("Cantidad inválida"), { status: 400 });
+
+  const { data: detalleActual, error: errorDetalle } = await supabaseAdmin
+    .from("detalle_pedidos")
+    .select("id_producto, quantity, final_unit_price")
+    .eq("id_detalle", idDetalle)
+    .single();
+
+  if (errorDetalle || !detalleActual) throw Object.assign(new Error("Detalle no encontrado"), { status: 404 });
+
+  const { id_producto } = detalleActual;
+
+  const { data: producto } = await supabaseAdmin
+    .from("productos")
+    .select("stock, sale_price")
+    .eq("id_producto", id_producto)
+    .single();
+
+  if (!producto) throw Object.assign(new Error("Producto no encontrado"), { status: 404 });
+
+  const { data: otrosDetalles } = await supabaseAdmin
+    .from("detalle_pedidos")
+    .select("quantity")
+    .eq("id_pedido", idPedido)
+    .eq("id_producto", id_producto)
+    .neq("id_detalle", idDetalle);
+
+  const cantidadYaPedida = otrosDetalles?.reduce((sum, d) => sum + d.quantity, 0) || 0;
+
+  if (producto.stock < cantidadYaPedida + quantity) {
+    throw Object.assign(new Error("Stock insuficiente"), { status: 400, disponible: producto.stock - cantidadYaPedida });
+  }
+
+  // FIX: Force re-evaluate Happy Hour state to prevent ghost discount
+  const { data: happyHour } = await supabaseAdmin
+    .from("configuracion_happy_hour")
+    .select("is_active, discount_percentage")
+    .single();
+
+  let precioBase = Number(producto.sale_price);
+  let finalUnitPrice = precioBase;
+  let isMadiApplied = false;
+  let madiDiscount = 0;
+
+  if (happyHour?.is_active && happyHour.discount_percentage > 0) {
+    madiDiscount = Number(happyHour.discount_percentage);
+    finalUnitPrice = precioBase - (precioBase * madiDiscount / 100);
+    isMadiApplied = true;
+  }
+
+  const nuevoSubtotal = finalUnitPrice * quantity;
+
+  await supabaseAdmin
+    .from("detalle_pedidos")
+    .update({ 
+      quantity, 
+      subtotal: nuevoSubtotal,
+      final_unit_price: finalUnitPrice,
+      is_madi_applied: isMadiApplied,
+      madi_discount_percentage: madiDiscount
+    })
+    .eq("id_detalle", idDetalle);
+
+  const nuevoTotal = await recalcularYActualizarTotal(idPedido);
+  return nuevoTotal;
+};
+
+export const eliminarDetalleService = async (idPedido, idDetalle) => {
+  const { data: pedidoData } = await supabaseAdmin
+    .from("pedidos")
+    .select("id_mesa")
+    .eq("id_pedido", idPedido)
+    .single();
+
+  await supabaseAdmin
+    .from("detalle_pedidos")
+    .delete()
+    .eq("id_detalle", idDetalle);
+
+  const { count } = await supabaseAdmin
+    .from("detalle_pedidos")
+    .select("*", { count: "exact", head: true })
+    .eq("id_pedido", idPedido);
+
+  if (count === 0) {
+    await supabaseAdmin
+      .from("pedidos")
+      .delete()
+      .eq("id_pedido", idPedido);
+
+    if (pedidoData) {
+      await supabaseAdmin
+        .from("mesas")
+        .update({ status: "libre" })
+        .eq("id_mesa", pedidoData.id_mesa);
+    }
+
+    return { message: "Pedido vacío eliminado", orderDeleted: true };
+  }
+
+  const nuevoTotal = await recalcularYActualizarTotal(idPedido);
+  return { message: "Producto eliminado", nuevoTotal, orderDeleted: false };
+};
+
+export const cerrarPedidoSeguroService = async (idPedido) => {
+  const { data: detallesList, error: detallesError } = await supabaseAdmin
+    .from("detalle_pedidos")
+    .select("id_producto, quantity, subtotal")
+    .eq("id_pedido", idPedido);
+
   if (detallesError) throw detallesError;
 
-  // Validación de integridad empresarial: Un pedido no puede ser cerrado/facturado si no tiene 
-  // al menos un artículo registrado en su carrito de compras.
-  if (!detalles || detalles.length === 0) {
+  if (!detallesList || detallesList.length === 0) {
     throw new Error("El pedido no tiene detalles");
   }
 
-  // =========================================================================
-  // 2️⃣ CALCULAR TOTAL EN BACKEND (VERIFICACIÓN DEL LADO DEL SERVIDOR)
-  // =========================================================================
-  // Inicialización del acumulador numérico en cero.
   let total = 0;
-  
-  // Ciclo imperativo 'for...of' que recorre secuencialmente cada uno de los artículos del listado.
-  for (const item of detalles) {
-    // 💡 NOTA DE AUDITORÍA DE CÓDIGO: Actualmente el bucle acumula las unidades físicas de los 
-    // artículos (item.cantidad). Si tu intención es guardar el total monetario en la base de datos, 
-    // la suma lógica debería apuntar a 'item.subtotal'.
-    total += item.cantidad;
+  for (const item of detallesList) {
+    total += Number(item.subtotal || 0);
   }
 
-  // =========================================================================
-  // 3️⃣ ACTUALIZAR PEDIDO (PERSISTENCIA Y CAMBIO DE ESTADO)
-  // =========================================================================
-  // Se efectúa la mutación de datos en la tabla principal de 'pedidos'.
-  // Se cambia el estado operativo a "cerrado" (evitando que se le sigan añadiendo productos)
-  // y se estampa el valor total recalculado por el servidor.
   const { data: pedido, error: pedidoError } = await supabaseAdmin
     .from("pedidos")
-    .update({
-      total_amount: total, // Inyección del acumulador finalizado
-      status: "cerrado",   // Transición de estado en el ciclo de vida del pedido
-    })
-    .eq("id", idPedido) // Restricción condicional de actualización WHERE id = idPedido
-    .select() // Solicita explícitamente a PostgreSQL la devolución de la fila modificada
-    .single(); // Configura la respuesta como un objeto plano único en lugar de una matriz
+    .update({ total_amount: total, status: "cerrado" })
+    .eq("id_pedido", idPedido)
+    .select()
+    .single();
 
-  // Control de flujo final: Si la actualización en la tabla 'pedidos' genera un conflicto o falla,
-  // interrumpe la ejecución lanzando la excepción correspondiente.
   if (pedidoError) throw pedidoError;
 
-  // Retorna con éxito el registro íntegro del pedido cerrado para su posterior uso o respuesta HTTP.
+  // TRIGGER: Verificar si el Happy Hour global debe encenderse silenciosamente
+  try {
+    const { verificarActivacionHappyHourService } = await import("./happy_hour.service.js");
+    await verificarActivacionHappyHourService();
+  } catch (e) {
+    console.error("Error al intentar auto-activar Happy Hour:", e);
+  }
+
   return pedido;
 };

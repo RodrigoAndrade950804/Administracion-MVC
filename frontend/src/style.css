@@ -3,6 +3,91 @@
 body {
   margin: 0;
   padding: 0;
-  font-family: sans-serif;
-  background: #111111;
+  font-family: 'Outfit', sans-serif;
+  background: #0f172a; /* Sleek dark slate base for all normal modes */
+  color: #f8fafc;
+  transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
+}
+
+/* Base Normal Theme */
+.theme-normal {
+  background-color: #0f172a !important; /* Slate 900 */
+  transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
+}
+
+/* Glassmorphism Panel Standard */
+.glass-panel {
+  background-color: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  border-radius: 1rem;
+  transition: all 0.3s ease;
+}
+
+.glass-panel:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+/* Neon Theme Global Overrides */
+.theme-neon {
+  background-color: #020617 !important; /* Slate 950 - Darker for neon pop */
+  /* Remove the global green color to preserve semantic colors (red/gold/silver) */
+  transition: background-color 0.5s ease-in-out;
+}
+
+/* In Neon mode, glass panels get a green glowing tint instead of white */
+.theme-neon .glass-panel {
+  background-color: rgba(34, 197, 94, 0.05) !important;
+  border-color: rgba(34, 197, 94, 0.4) !important;
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.15) !important;
+}
+
+.theme-neon .glass-panel:hover {
+  background-color: rgba(34, 197, 94, 0.08) !important;
+  border-color: rgba(34, 197, 94, 0.6) !important;
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.3) !important;
+  transform: translateY(-2px);
+}
+
+/* Maintain old card-panel compatibility but route it to glass style */
+.card-panel {
+  background-color: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  transition: all 0.3s ease;
+}
+.theme-neon .card-panel {
+  background-color: rgba(2, 6, 23, 0.8) !important; /* Slate 950 transparent */
+  border-color: #22c55e !important; /* Green 500 */
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.3) !important;
+}
+
+.theme-neon .btn-primary {
+  background-color: rgba(34, 197, 94, 0.1) !important;
+  color: #4ade80 !important;
+  border: 1px solid #22c55e !important;
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.4) !important;
+  transition: all 0.3s ease;
+}
+.theme-neon .btn-primary:hover {
+  background-color: #22c55e !important;
+  color: #020617 !important;
+  box-shadow: 0 0 25px rgba(34, 197, 94, 0.6) !important;
+}
+
+/* Specific class to make text neon without overriding everything */
+.text-neon-green {
+  color: #4ade80 !important;
+  text-shadow: 0 0 8px rgba(74, 222, 128, 0.6) !important;
+}
+
+.neon-glow {
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.5);
+  border: 1px solid #22c55e;
 }

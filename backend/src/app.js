@@ -13,6 +13,10 @@ import inventarioRoutes from "./routes/inventario.routes.js";
 // 1. Importa las rutas de pedidos
 // Trae la configuración de los endpoints encargados de gestionar las líneas de detalle de las comandas.
 import pedidosRoutes from "./routes/pedidos.routes.js"; 
+import productosRoutes from "./routes/productos.routes.js";
+import mesasRoutes from "./routes/mesas.routes.js";
+import madiRoutes from "./routes/madi.routes.js";
+import happyHourRoutes from "./routes/happy_hour.routes.js";
 
 // Inicialización de la aplicación Express. 
 // 'app' contiene todos los métodos necesarios para levantar rutas, escuchar puertos y configurar middlewares.
@@ -46,6 +50,10 @@ app.use("/api/inventario", inventarioRoutes);
 // Centraliza el módulo de operaciones CRUD de detalles de pedidos bajo el prefijo "/api/pedidos".
 // Ejemplo: Una petición POST a "/api/pedidos/45/agregar" inyectará un producto a la comanda 45.
 app.use("/api/pedidos", pedidosRoutes); 
+app.use("/api/productos", productosRoutes);
+app.use("/api/mesas", mesasRoutes);
+app.use("/api/madi", madiRoutes);
+app.use("/api/happy-hour", happyHourRoutes);
 
 // Exportación por defecto de la instancia de la aplicación configurada.
 // Siguiendo el principio de separación de conceptos, este archivo solo CONFIGURA la app,

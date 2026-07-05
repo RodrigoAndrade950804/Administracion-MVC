@@ -123,11 +123,7 @@ const guardarConfiguracion = async () => {
     await actualizarConfiguracionMadi(
       configuracion.value.id_madi,
       {
-        daily_success_threshold: configuracion.value.daily_success_threshold,
-        madi_multiplier: configuracion.value.madi_multiplier,
-        is_active: configuracion.value.is_active,
-        discount_percentage: configuracion.value.discount_percentage,
-        daily_sales_goal: configuracion.value.daily_sales_goal
+        personal_daily_goal: configuracion.value.personal_daily_goal
       }
     );
     alert("Configuración actualizada");
@@ -146,7 +142,7 @@ onMounted(async () => {
 <template>
 
   <div
-    class="bg-[#1b1b1b] rounded-3xl p-6"
+    class="glass-panel bg-white/5 shadow-xl rounded-3xl p-6 transition-colors duration-500"
   >
 
     <h2
@@ -159,102 +155,18 @@ onMounted(async () => {
       v-if="configuracion"
       class="grid md:grid-cols-2 gap-4"
     >
-
-      <div>
-
-        <label
-          class="block mb-2"
-        >
-          Meta Activación MADI (%)
-        </label>
-
-        <input
-          v-model="
-            configuracion.daily_success_threshold
-          "
-          type="number"
-          class="w-full bg-[#2a2a2a] p-3 rounded-xl"
-        />
-
-      </div>
-
       <div>
 
         <label class="block mb-2">
-          Meta Ventas Mesero ($)
+          Meta Ventas Mesero Diaria ($)
         </label>
 
         <input
-          v-model="configuracion.daily_sales_goal"
+          v-model="configuracion.personal_daily_goal"
           type="number"
           step="0.01"
-          class="w-full bg-[#2a2a2a] p-3 rounded-xl"
+          class="w-full bg-black/20 p-3 rounded-xl border border-white/10"
         />
-
-      </div>
-
-      <div>
-
-        <label
-          class="block mb-2"
-        >
-          Multiplicador MADI
-        </label>
-
-        <input
-          v-model="
-            configuracion.madi_multiplier
-          "
-          type="number"
-          step="0.01"
-          class="w-full bg-[#2a2a2a] p-3 rounded-xl"
-        />
-
-      </div>
-
-      <div>
-
-        <label
-          class="block mb-2"
-        >
-          Descuento (%)
-        </label>
-
-        <input
-          v-model="
-            configuracion.discount_percentage
-          "
-          type="number"
-          step="0.01"
-          class="w-full bg-[#2a2a2a] p-3 rounded-xl"
-        />
-
-      </div>
-
-      <div>
-
-        <label
-          class="block mb-2"
-        >
-          Estado
-        </label>
-
-        <select
-          v-model="
-            configuracion.is_active
-          "
-          class="w-full bg-[#2a2a2a] p-3 rounded-xl"
-        >
-
-          <option :value="true">
-            Activo
-          </option>
-
-          <option :value="false">
-            Inactivo
-          </option>
-
-        </select>
 
       </div>
 
@@ -284,7 +196,7 @@ onMounted(async () => {
             nuevaRegla.level_name
           "
           placeholder="Nivel"
-          class="bg-[#2a2a2a] p-3 rounded-xl"
+          class="glass-panel p-6 shadow-xl p-3 rounded-xl"
         />
 
         <input
@@ -293,7 +205,7 @@ onMounted(async () => {
           "
           type="number"
           placeholder="% mínimo"
-          class="bg-[#2a2a2a] p-3 rounded-xl"
+          class="glass-panel p-6 shadow-xl p-3 rounded-xl"
         />
 
         <input
@@ -302,7 +214,7 @@ onMounted(async () => {
           "
           type="number"
           placeholder="% máximo"
-          class="bg-[#2a2a2a] p-3 rounded-xl"
+          class="glass-panel p-6 shadow-xl p-3 rounded-xl"
         />
 
         <input
@@ -310,9 +222,9 @@ onMounted(async () => {
             nuevaRegla.bonus_factor
           "
           type="number"
-          step="0.01"
-          placeholder="Factor"
-          class="bg-[#2a2a2a] p-3 rounded-xl"
+          step="1"
+          placeholder="Factor (%)"
+          class="glass-panel p-6 shadow-xl p-3 rounded-xl"
         />
 
       </div>
@@ -349,7 +261,7 @@ onMounted(async () => {
             </th>
 
             <th class="p-3">
-              Factor Bono
+              Factor Bono (%)
             </th>
 
             <th class="p-3">
@@ -387,7 +299,7 @@ onMounted(async () => {
             </td>
 
             <td class="p-3 text-green-400 font-bold">
-              x{{ regla.bonus_factor }}
+              {{ regla.bonus_factor }}%
             </td>
 
             <td class="p-3 flex gap-2">
@@ -437,26 +349,27 @@ onMounted(async () => {
 
           <input
             v-model="reglaEditando.level_name"
-            class="w-full bg-[#2a2a2a] p-3 rounded-xl"
+            class="w-full glass-panel p-6 shadow-xl p-3 rounded-xl"
           />
 
           <input
             v-model="reglaEditando.min_percentage"
             type="number"
-            class="w-full bg-[#2a2a2a] p-3 rounded-xl"
+            class="w-full glass-panel p-6 shadow-xl p-3 rounded-xl"
           />
 
           <input
             v-model="reglaEditando.max_percentage"
             type="number"
-            class="w-full bg-[#2a2a2a] p-3 rounded-xl"
+            class="w-full glass-panel p-6 shadow-xl p-3 rounded-xl"
           />
 
+          <label class="block text-gray-400">Factor Bono (%)</label>
           <input
             v-model="reglaEditando.bonus_factor"
             type="number"
-            step="0.01"
-            class="w-full bg-[#2a2a2a] p-3 rounded-xl"
+            step="1"
+            class="w-full glass-panel p-6 shadow-xl p-3 rounded-xl"
           />
 
           <div class="flex gap-3">

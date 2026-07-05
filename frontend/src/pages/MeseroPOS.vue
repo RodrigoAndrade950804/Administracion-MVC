@@ -7,11 +7,12 @@ import { useAuthStore } from "../stores/authStore";
 import { getProductos } from "../services/productosService";
 import { getMesas, updateMesaStatus } from "../services/mesasService";
 import { supabase } from "../services/supabase";
+import { useHappyHourStore } from "../stores/happyHourStore";
 
 import {
   getConfiguracionMadi,
   suscribirConfiguracionMadi,
-  verificarActivacionMadi
+  verificarProgresoPersonal
 } from "../services/madiService";
 
 import {
@@ -37,7 +38,9 @@ const mesas = ref([]);             // Lista de mesas del restaurante con su esta
 const mesaSeleccionada = ref(null);// ID de la mesa que el mesero está atendiendo en este momento.
 const pedido = ref([]);            // Array de visualización: Lista de ítems en el carrito de la mesa seleccionada.
 const pedidoActivo = ref(null);    // Objeto técnico: Registro principal del pedido abierto en la base de datos.
-const madiConfig = ref(null);      // Almacena las reglas de bonificación y Happy Hour activas.
+const madiConfig = ref(null);      // Almacena las reglas de bonificación.
+const progresoPersonal = ref({ ventas: 0, meta: 100, porcentaje: 0, categoria: "Sin Bono" });
+const happyHourStore = useHappyHourStore();
 
 // Variables de control para los canales de WebSockets. 
 // Guardar la referencia es vital para poder "desconectarlos" al salir de la pantalla.
@@ -72,6 +75,17 @@ const loadMesas = async () => {
 
 const loadMadi = async () => {
   madiConfig.value = await getConfiguracionMadi();
+  await loadProgresoPersonal();
+};
+
+const loadProgresoPersonal = async () => {
+  if (authStore.user) {
+    try {
+      progresoPersonal.value = await verificarProgresoPersonal(authStore.user.id_user);
+    } catch (e) {
+      console.error("Error al cargar progreso personal:", e);
+    }
+  }
 };
 
 // ==========================================
@@ -101,6 +115,7 @@ const iniciarRealtimePedidos = () => {
     .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, async () => {
       await loadMesas();        // Refresca colores de las mesas (Libre/Ocupada)
       await cargarPedidoMesa(); // Refresca el ticket en pantalla
+      await loadProgresoPersonal(); // Refresca el progreso si hubo alteraciones a las ventas cerradas
     })
     .on("postgres_changes", { event: "*", schema: "public", table: "detalle_pedidos" }, async () => {
       await cargarPedidoMesa(); // Refresca las cantidades y subtotales en el ticket
@@ -204,7 +219,7 @@ const agregarProducto = async (producto) => {
 
     // PASO 5: Todo salió bien, recargamos la vista y verificamos si llegamos a la meta de bonos.
     await cargarPedidoMesa();
-    await verificarActivacionMadi();
+    await loadProgresoPersonal();
 
   } catch (error) {
     // ==========================================
@@ -271,7 +286,7 @@ const cobrarPedido = async () => {
     await cerrarPedido(pedidoActivo.value.id_pedido);
     
     // 3. Verifica si esta venta hizo que se alcanzara la meta diaria.
-    await verificarActivacionMadi();
+    await loadProgresoPersonal();
     
     // 4. Libera la mesa para nuevos clientes.
     await updateMesaStatus(mesaSeleccionada.value, "libre");
@@ -302,12 +317,14 @@ onMounted(async () => {
   await loadMesas();
   await loadMadi();
   await cargarPedidoMesa();
+  await happyHourStore.loadConfig();
   
   // ...Y luego encendemos los "radares" para mantenerlos actualizados en vivo.
   iniciarRealtimeProductos();
   iniciarRealtimeMadi();
   iniciarRealtimePedidos();
   iniciarRealtimeMesas();
+  happyHourStore.iniciarRealtimeHappyHour();
 });
 
 // onUnmounted: Se ejecuta justo antes de que el usuario cambie a otra pantalla.
@@ -323,7 +340,8 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="min-h-screen bg-[#111111] text-white p-6"
+    class="min-h-screen bg-[#111111] text-white p-6 transition-colors duration-500"
+    :class="happyHourStore.config.is_active ? 'shadow-[inset_0_0_80px_rgba(0,255,120,0.2)] border border-green-500/20' : ''"
   >
 
     <!-- HEADER -->
@@ -334,15 +352,9 @@ onUnmounted(() => {
 
       <div>
 
-        <h1
-          class="text-4xl font-bold"
-        >
-          POS Mesero
-        </h1>
-
-        <p class="text-gray-400">
+        <h2 :class="['text-xl font-bold mb-4 z-10 relative flex items-center justify-between', isHappyHourActive ? 'text-neon-green' : 'text-gray-100']">
           Gestión de Pedidos
-        </p>
+        </h2>
 
       </div>
 
@@ -350,11 +362,11 @@ onUnmounted(() => {
 
         <div
           v-if="
-            madiConfig?.is_active
+            happyHourStore.config.is_active
           "
           class="px-6 py-3 rounded-2xl font-bold bg-green-500 text-black shadow-[0_0_20px_rgba(0,255,120,0.7)]"
         >
-          HAPPY HOUR x{{ madiConfig?.madi_multiplier }}
+          HAPPY HOUR x{{ happyHourStore.config.waiter_multiplier }}
         </div>
 
         <div
@@ -375,6 +387,43 @@ onUnmounted(() => {
 
     </div>
 
+    <!-- WIDGET PROGRESO PERSONAL -->
+    <div class="mb-8 glass-panel shadow-xl rounded-3xl p-6 transition-colors duration-500">
+      <div class="flex justify-between items-center mb-2">
+        <h3 class="text-xl font-bold">Tu Progreso de Ventas Diarias</h3>
+        <span class="font-bold px-3 py-1 rounded-full"
+          :class="{
+            'bg-gray-700 text-red-400': progresoPersonal.categoria === 'Sin Bono',
+            'bg-amber-900 text-amber-400': progresoPersonal.categoria === 'Bronce',
+            'bg-gray-600 text-gray-200': progresoPersonal.categoria === 'Plata',
+            'bg-yellow-600 text-yellow-300': progresoPersonal.categoria === 'Oro',
+          }"
+        >
+          {{ progresoPersonal.categoria }}
+        </span>
+      </div>
+      
+      <div class="w-full bg-gray-700 rounded-full h-4 mb-2">
+        <div
+          class="bg-green-500 h-4 rounded-full transition-all duration-500"
+          :style="`width: ${Math.min(progresoPersonal.porcentaje, 100)}%`"
+        ></div>
+      </div>
+      
+      <div :class="['flex justify-between text-sm', isHappyHourActive ? 'text-neon-green font-bold' : 'text-gray-300 font-semibold']">
+        <span>Ventas: ${{ Number(progresoPersonal.ventas).toFixed(2) }}</span>
+        <span>Meta: ${{ Number(progresoPersonal.meta).toFixed(2) }}</span>
+      </div>
+
+      <div 
+        v-if="progresoPersonal.bonoExtra > 0" 
+        class="mt-2 pt-2 border-t border-white/10 text-center font-bold text-lg"
+        :class="happyHourStore.config.is_active ? 'text-green-300 drop-shadow-[0_0_8px_rgba(0,255,120,0.8)]' : 'text-green-400'"
+      >
+        ¡Bono Extra Acumulado: ${{ Number(progresoPersonal.bonoExtra).toFixed(2) }}!
+      </div>
+    </div>
+
     <!-- GRID -->
 
     <div
@@ -386,7 +435,7 @@ onUnmounted(() => {
       <div class="lg:col-span-2">
 
         <div
-          class="bg-[#1b1b1b] rounded-3xl p-6"
+          class="glass-panel shadow-xl rounded-3xl p-6 transition-colors duration-500"
         >
 
           <h2
@@ -438,7 +487,7 @@ onUnmounted(() => {
       <div>
 
         <div
-          class="bg-[#1b1b1b] rounded-3xl p-6"
+          class="glass-panel shadow-xl rounded-3xl p-6 transition-colors duration-500"
         >
 
           <div class="mb-6">
@@ -554,15 +603,10 @@ onUnmounted(() => {
 
             </div>
 
-            <button
-              @click="cobrarPedido"
-              :disabled="pedido.length === 0"
-              class="w-full font-bold py-4 rounded-2xl transition"
-              :class="
-                pedido.length === 0
-                  ? 'bg-gray-700 cursor-not-allowed'
-                  : 'bg-green-500 text-black hover:bg-green-400'
-              "
+            <button 
+              @click="cerrarPedido" 
+              class="w-full btn-primary text-white font-bold py-4 rounded-xl shadow transition-all flex items-center justify-center space-x-2 text-lg disabled:opacity-50"
+              :disabled="loading"
             >
               Cerrar Pedido / Cobrar
             </button>

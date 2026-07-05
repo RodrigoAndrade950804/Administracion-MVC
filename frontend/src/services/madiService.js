@@ -1,27 +1,29 @@
 import { supabase } from "./supabase";
 
+const API_URL = import.meta.env.VITE_API_URL + "/api/madi";
+
 // =========================
 // CONFIGURACION MADI
 // =========================
 
-/**
- * Recupera la configuración actual de MADI. 
- * El uso de .single() garantiza obtener el único registro de configuración.
- */
 export const getConfiguracionMadi = async () => {
-  const { data, error } = await supabase
-    .from("configuracion_madi")
-    .select("*")
-    .single();
+  const response = await fetch(`${API_URL}/config`);
+  if (!response.ok) throw new Error("Error obteniendo config MADI");
+  return await response.json();
+};
 
-  if (error) throw error;
-  return data;
+export const actualizarConfiguracionMadi = async (id, configuracion) => {
+  const response = await fetch(`${API_URL}/config/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(configuracion)
+  });
+  if (!response.ok) throw new Error("Error actualizando MADI");
+  return await response.json();
 };
 
 /**
- * Implementa Realtime para escuchar cambios en la tabla de configuración.
- * Permite que, si alguien cambia una meta desde el panel administrativo, 
- * todos los usuarios (meseros/supervisores) vean el cambio al instante.
+ * Mantiene la conexión a Supabase solo para funcionalidad de tiempo real.
  */
 export const suscribirConfiguracionMadi = (callback) => {
   return supabase
@@ -30,100 +32,54 @@ export const suscribirConfiguracionMadi = (callback) => {
     .subscribe();
 };
 
-/**
- * Actualiza parámetros específicos como el multiplicador de Happy Hour 
- * o el estado de activación ('is_active').
- */
-export const actualizarConfiguracionMadi = async (id, configuracion) => {
-  const { error } = await supabase
-    .from("configuracion_madi")
-    .update(configuracion)
-    .eq("id_madi", id);
-
-  if (error) throw error;
-};
-
 // =========================
 // REGLAS BONOS (CRUD)
 // =========================
-// Este conjunto de funciones gestiona el catálogo de reglas que determinan 
-// qué bonificación recibe un mesero según su rendimiento.
 
 export const getReglasBonos = async () => {
-  const { data, error } = await supabase
-    .from("reglas_bonos")
-    .select("*")
-    .order("id_reglas"); // Ordena para presentar reglas de menor a mayor exigencia.
-
-  if (error) throw error;
-  return data;
+  const response = await fetch(`${API_URL}/reglas`);
+  if (!response.ok) throw new Error("Error obteniendo reglas");
+  return await response.json();
 };
 
 export const crearReglaBono = async (regla) => {
-  const { data, error } = await supabase
-    .from("reglas_bonos")
-    .insert([regla])
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  const response = await fetch(`${API_URL}/reglas`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(regla)
+  });
+  if (!response.ok) throw new Error("Error creando regla");
+  return await response.json();
 };
 
 export const actualizarReglaBono = async (id, regla) => {
-  const { error } = await supabase
-    .from("reglas_bonos")
-    .update(regla)
-    .eq("id_reglas", id);
-
-  if (error) throw error;
+  const response = await fetch(`${API_URL}/reglas/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(regla)
+  });
+  if (!response.ok) throw new Error("Error actualizando regla");
+  return await response.json();
 };
 
 export const eliminarReglaBono = async (id) => {
-  const { error } = await supabase
-    .from("reglas_bonos")
-    .delete()
-    .eq("id_reglas", id);
-
-  if (error) throw error;
+  const response = await fetch(`${API_URL}/reglas/${id}`, {
+    method: "DELETE"
+  });
+  if (!response.ok) throw new Error("Error eliminando regla");
+  return await response.json();
 };
 
 // =========================
 // LÓGICA DE NEGOCIO AUTOMATIZADA
 // =========================
+// Mueve el cálculo pesado y verificaciones lógicas al backend,
+// previniendo concurrencia innecesaria en el cliente.
 
-/**
- * Suma el total de todos los pedidos que ya han sido pagados ('cerrado').
- * Es la base para calcular si se ha alcanzado la meta diaria.
- */
-export const calcularVentasTotales = async () => {
-  const { data, error } = await supabase
-    .from("pedidos")
-    .select("total_amount")
-    .eq("status", "cerrado");
-
-  if (error) throw error;
-
-  // Reduce el array de pedidos a una suma aritmética del monto total.
-  return data.reduce((total, pedido) => total + Number(pedido.total_amount), 0);
-};
-
-/**
- * Función clave de automatización:
- * 1. Obtiene la configuración (meta).
- * 2. Calcula las ventas reales acumuladas.
- * 3. Si ventas >= meta y MADI está apagado, lo enciende automáticamente.
- * Esto elimina la necesidad de intervención manual del supervisor.
- */
-export const verificarActivacionMadi = async () => {
-  const config = await getConfiguracionMadi();
-  const ventas = await calcularVentasTotales();
-  const meta = Number(config.daily_sales_goal);
-
-  console.log("VENTAS:", ventas, "META:", meta, "ACTIVO:", config.is_active);
-
-  if (ventas >= meta && !config.is_active) {
-    console.log("ACTIVANDO MADI");
-    await actualizarConfiguracionMadi(config.id_madi, { is_active: true });
-  }
+export const verificarProgresoPersonal = async (idUser) => {
+  const response = await fetch(`${API_URL}/progreso/${idUser}`, {
+    method: "GET"
+  });
+  if (!response.ok) throw new Error("Error verificando MADI");
+  return await response.json();
 };

@@ -4,13 +4,16 @@ import { getMesas } from "../services/mesasService";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/authStore";
 import { supabase } from "../services/supabase";
-import { getConfiguracionMadi, suscribirConfiguracionMadi } from "../services/madiService";
+import { useHappyHourStore } from "../stores/happyHourStore";
+import { getConfiguracionMadi, suscribirConfiguracionMadi, getReglasBonos } from "../services/madiService";
 import { getMeserosConVentas } from "../services/usuariosService";
 
 // Estados reactivos: mesas activas, ranking de meseros y configuración MADI.
 const mesas = ref([]);
 const meseros = ref([]);
 const madiConfig = ref(null);
+const happyHourStore = useHappyHourStore();
+const reglas = ref([]);
 
 // Canales para las suscripciones Realtime.
 let canalMadi = null;
@@ -31,6 +34,7 @@ const loadMesas = async () => {
 const loadMadi = async () => {
   try {
     madiConfig.value = await getConfiguracionMadi();
+    reglas.value = await getReglasBonos();
   } catch (error) {
     console.error(error);
   }
@@ -40,18 +44,20 @@ const loadMadi = async () => {
 const loadRankingMeseros = async () => {
   try {
     const usuarios = await getMeserosConVentas();
-    const meta = Number(madiConfig.value?.daily_sales_goal || 100);
+    const meta = Number(madiConfig.value?.personal_daily_goal || 100);
 
     meseros.value = usuarios.map(usuario => {
       // Suma total de los montos de pedidos del mesero.
       const ventas = usuario.pedidos?.reduce((total, pedido) => total + Number(pedido.total_amount), 0) || 0;
       const porcentaje = (ventas / meta) * 100;
 
-      // Asignación de categoría basada en cumplimiento.
+      // Asignación de categoría basada en cumplimiento dinámico
       let categoria = "Sin Bono";
-      if (porcentaje >= 181) categoria = "Oro";
-      else if (porcentaje >= 151) categoria = "Plata";
-      else if (porcentaje >= 101) categoria = "Bronce";
+      for (const regla of reglas.value) {
+        if (porcentaje >= regla.min_percentage) {
+          categoria = regla.level_name;
+        }
+      }
 
       return {
         nombre: `${usuario.first_name || ""} ${usuario.last_name || ""}`,
@@ -75,6 +81,7 @@ const iniciarRealtimePedidos = () => {
     .channel("pedidos-realtime")
     .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, async () => {
       await loadRankingMeseros();
+      await happyHourStore.loadVentasSemanales();
     })
     .subscribe();
 };
@@ -102,9 +109,12 @@ onMounted(async () => {
   await loadMesas();
   await loadMadi();
   await loadRankingMeseros();
+  await happyHourStore.loadConfig();
+  await happyHourStore.loadVentasSemanales();
   iniciarRealtime();
   iniciarRealtimePedidos();
   iniciarRealtimeMadi();
+  happyHourStore.iniciarRealtimeHappyHour();
 });
 
 // Limpieza de canales al destruir el componente para evitar fugas de memoria.
@@ -125,11 +135,11 @@ const logout = () => {
   router.push("/");
 };
 
-// Progreso porcentual de la meta de ventas global para la barra superior.
+// Progreso porcentual de la meta de ventas global (SEMANAL) para la barra superior.
 const progresoVentas = computed(() => {
-  if (!madiConfig.value) return 0;
-  const totalVentas = meseros.value.reduce((acc, m) => acc + Number(m.ventas || 0), 0);
-  const meta = Number(madiConfig.value.daily_sales_goal || 100);
+  if (!happyHourStore.config) return 0;
+  const totalVentas = Number(happyHourStore.ventasSemanales || 0);
+  const meta = Number(happyHourStore.config.weekly_sales_trigger || 100);
   if (meta <= 0) return 0;
   return Math.min((totalVentas / meta) * 100, 100);
 });
@@ -138,8 +148,8 @@ const progresoVentas = computed(() => {
 
 <template>
   <div
-    class="min-h-screen bg-[#111111] text-white p-6"
-    :class="madiConfig?.is_active ? 'shadow-[0_0_60px_rgba(0,255,120,0.15)]' : ''"
+    class="min-h-screen transition-colors duration-500 text-current p-6"
+    :class="happyHourStore.config.is_active ? 'shadow-[0_0_60px_rgba(0,255,120,0.15)]' : ''"
   >
 
     <!-- HEADER -->
@@ -160,11 +170,11 @@ const progresoVentas = computed(() => {
 
       <div
         v-if="
-          madiConfig?.is_active
+          happyHourStore.config.is_active
         "
         class="px-6 py-3 rounded-2xl font-bold bg-green-500 text-black shadow-[0_0_20px_rgba(0,255,120,0.7)]"
       >
-        HAPPY HOUR x{{ madiConfig?.madi_multiplier }}
+        HAPPY HOUR x{{ happyHourStore.config.waiter_multiplier }}
       </div>
 
       <div
@@ -193,7 +203,7 @@ const progresoVentas = computed(() => {
 
       <div class="lg:col-span-2">
 
-        <div class="bg-[#1b1b1b] rounded-3xl p-6">
+        <div class="glass-panel transition-colors duration-500 rounded-3xl p-6">
 
           <h2 class="text-2xl font-bold mb-6">
             Estado de Mesas
@@ -231,9 +241,9 @@ const progresoVentas = computed(() => {
 
         <!-- ALERTA -->
 
-        <div class="bg-[#1b1b1b] rounded-3xl p-6">
+        <div class="glass-panel transition-colors duration-500 rounded-3xl p-6">
 
-          <h2 class="text-xl font-bold mb-4">
+          <h2 :class="['text-xl font-bold mb-4', happyHourStore.config.is_active ? 'text-neon-green' : '']">
             Progreso MADI
           </h2>
 
@@ -246,7 +256,7 @@ const progresoVentas = computed(() => {
 
         </div>
 
-          <p class="mt-4 text-green-400 font-bold">
+          <p :class="['text-center mt-3 text-sm font-bold', happyHourStore.config.is_active ? 'text-neon-green' : 'text-gray-400']">
             {{ Number(progresoVentas || 0).toFixed(0) }}%
             de la meta global de ventas
           </p>
@@ -254,9 +264,9 @@ const progresoVentas = computed(() => {
         </div>
         <!-- RANKING -->
 
-        <div class="bg-[#1b1b1b] rounded-3xl p-6">
+        <div class="glass-panel transition-colors duration-500 rounded-3xl p-6">
 
-          <h2 class="text-xl font-bold mb-6">
+          <h2 :class="['text-xl font-bold mb-6', happyHourStore.config.is_active ? 'text-neon-green' : '']">
             Ranking Meseros
           </h2>
 

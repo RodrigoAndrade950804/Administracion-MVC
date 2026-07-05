@@ -38,31 +38,31 @@ const router = createRouter({
 // =========================
 // ROUTE GUARD (Middleware de seguridad)
 // =========================
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, from) => {
   const authStore = useAuthStore();
 
   // 1. Verificación de Autenticación:
   // Si la ruta requiere sesión y el usuario no está logueado, redirige al login.
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    return next("/");
+    return "/";
   }
 
   // 2. Verificación de Usuario Activo:
   // Si el usuario en el store está marcado como inactivo, forzamos cierre de sesión.
   if (authStore.user?.active === false) {
     authStore.logout();
-    return next("/");
+    return "/";
   }
 
   // 3. Verificación de Rol:
   // Compara el rol necesario en 'meta' con el rol guardado en el store.
   // Si no coinciden, bloquea el acceso redirigiendo al home.
   if (to.meta.role && authStore.role !== to.meta.role) {
-    return next("/");
+    return "/";
   }
 
-  // Si pasa todas las validaciones, permite el acceso.
-  next();
+  // Si pasa todas las validaciones, permite el acceso devolviendo undefined implícitamente
+  return true;
 });
 
 export default router;

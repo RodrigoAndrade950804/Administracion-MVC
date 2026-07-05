@@ -84,10 +84,16 @@ export const useAuthStore = defineStore("auth", () => {
     // Salvaguarda: Si por alguna razón la función se ejecuta sin un usuario en memoria, se aborta silenciosamente.
     if (!user.value) return;
 
+    const channelName = `user-${user.value.id_user}`;
+
+    // Evitar suscribirse doblemente al mismo canal y causar el error "cannot add postgres_changes"
+    const existingChannel = supabase.getChannels().find(c => c.topic === `realtime:${channelName}`);
+    if (existingChannel) return existingChannel;
+
     // Creamos y retornamos la suscripción al canal de Supabase.
     return supabase
       // Definimos un nombre único para el canal WebSockets usando el ID del usuario (ej. "user-14")
-      .channel(`user-${user.value.id_user}`)
+      .channel(channelName)
       
       // Configuramos el listener para capturar los cambios en la base de datos (PostgreSQL)
       .on(

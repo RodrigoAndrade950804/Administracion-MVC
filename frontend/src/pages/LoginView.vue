@@ -48,26 +48,18 @@ const login = async () => {
     const userId = data.user.id;
 
     // =========================
-    // 2. OBTENER PERFIL Y ROL (Base de Datos)
+    // 2. OBTENER PERFIL Y ROL (Base de Datos a través de API)
     // =========================
     // Supabase Auth solo maneja el "acceso". Ahora cruzamos ese UUID con nuestra
     // tabla pública 'users' para obtener los datos de negocio (nombre, estado, rol).
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select(`
-        *,
-        roles (
-          role_name
-        )
-      `)
-      .eq("id_auth_user", userId) // Buscamos al usuario que coincida con el UUID de Auth
-      .single();                  // Garantizamos que solo nos devuelva un único objeto
-
-    // Si hubo un error leyendo la base de datos (ej. usuario borrado), lo mostramos.
-    if (userError) {
-      errorMessage.value = userError.message;
+    const apiResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/users/perfil/${userId}`);
+    
+    if (!apiResponse.ok) {
+      errorMessage.value = "Error obteniendo el perfil del usuario.";
       return;
     }
+
+    const userData = await apiResponse.json();
 
     // =========================
     // 3. VALIDAR ESTADO (Seguridad)

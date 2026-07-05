@@ -121,7 +121,7 @@ onMounted(() => {
 <template>
 
   <div
-    class="bg-[#1b1b1b] rounded-3xl p-6"
+    class="glass-panel bg-white/5 shadow-xl rounded-3xl p-6 transition-colors duration-500"
   >
 
     <h2
@@ -139,28 +139,28 @@ onMounted(() => {
       <input
         v-model="form.name"
         placeholder="Nombre"
-        class="bg-[#2a2a2a] p-3 rounded-xl"
+        class="glass-panel p-6 shadow-xl p-3 rounded-xl"
       >
 
       <input
         v-model="form.sale_price"
         placeholder="Precio Venta"
         type="number"
-        class="bg-[#2a2a2a] p-3 rounded-xl"
+        class="glass-panel p-6 shadow-xl p-3 rounded-xl"
       >
 
       <input
         v-model="form.production_cost"
         placeholder="Costo"
         type="number"
-        class="bg-[#2a2a2a] p-3 rounded-xl"
+        class="glass-panel p-6 shadow-xl p-3 rounded-xl"
       >
 
       <input
         v-model="form.stock"
         placeholder="Stock"
         type="number"
-        class="bg-[#2a2a2a] p-3 rounded-xl"
+        class="glass-panel p-6 shadow-xl p-3 rounded-xl"
       >
 
     </div>
@@ -185,7 +185,7 @@ onMounted(() => {
       <div
         v-for="producto in productos"
         :key="producto.id_producto"
-        class="bg-[#2a2a2a] p-5 rounded-2xl"
+        class="glass-panel p-6 shadow-xl p-5 rounded-2xl"
       >
 
         <h3

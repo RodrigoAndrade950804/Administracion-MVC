@@ -3,12 +3,15 @@ import express from "express";
 
 // Importación por desestructuración de las 5 funciones controladoras que gestionan
 // la lógica empresarial de los usuarios (CRUD, seguridad y asignación de roles).
-import { crearUsuario, actualizarUsuario, obtenerUsuarios, toggleUsuario, eliminarUsuario }
+import { crearUsuario, actualizarUsuario, obtenerUsuarios, obtenerPerfilPorAuthId, toggleUsuario, eliminarUsuario, getMeserosConVentas }
 from "../controllers/users.controller.js";
 
 // Inicialización del enrutador modular para el catálogo de personal/usuarios.
 const router =
   express.Router();
+
+router.get("/meseros-ventas", getMeserosConVentas);
+router.get("/perfil/:authId", obtenerPerfilPorAuthId);
 
 // =========================================================================
 // RUTA 1: LEER/LISTAR TODOS LOS USUARIOS

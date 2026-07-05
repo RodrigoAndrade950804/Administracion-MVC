@@ -123,7 +123,7 @@ onMounted(() => {
 <template>
 
   <div
-    class="bg-[#1b1b1b] rounded-3xl p-6"
+    class="glass-panel bg-white/5 shadow-xl rounded-3xl p-6 transition-colors duration-500"
   >
 
     <h2
@@ -141,38 +141,38 @@ onMounted(() => {
       <input
         v-model="nuevoUsuario.first_name"
         placeholder="Nombre"
-        class="bg-[#2a2a2a] p-3 rounded-xl"
+        class="glass-panel p-6 shadow-xl p-3 rounded-xl"
       />
 
       <input
         v-model="nuevoUsuario.last_name"
         placeholder="Apellido"
-        class="bg-[#2a2a2a] p-3 rounded-xl"
+        class="glass-panel p-6 shadow-xl p-3 rounded-xl"
       />
 
       <input
         v-model="nuevoUsuario.email"
         placeholder="Correo"
-        class="bg-[#2a2a2a] p-3 rounded-xl"
+        class="glass-panel p-6 shadow-xl p-3 rounded-xl"
       />
 
       <input
         v-model="nuevoUsuario.password"
         type="password"
         placeholder="Contraseña"
-        class="bg-[#2a2a2a] p-3 rounded-xl"
+        class="glass-panel p-6 shadow-xl p-3 rounded-xl"
       />
 
       <input
         v-model="nuevoUsuario.base_salary"
         type="number"
         placeholder="Salario"
-        class="bg-[#2a2a2a] p-3 rounded-xl"
+        class="glass-panel p-6 shadow-xl p-3 rounded-xl"
       />
 
       <select
         v-model="nuevoUsuario.id_role"
-        class="bg-[#2a2a2a] p-3 rounded-xl"
+        class="glass-panel p-6 shadow-xl p-3 rounded-xl"
       >
 
         <option :value="1">
@@ -398,7 +398,7 @@ onMounted(() => {
     >
 
       <div
-        class="bg-[#1b1b1b] p-8 rounded-3xl w-[500px]"
+        class="glass-panel bg-white/5 shadow-xl p-8 rounded-3xl w-[500px]"
       >
 
         <h2
@@ -413,14 +413,14 @@ onMounted(() => {
             v-model="
               usuarioEditando.first_name
             "
-            class="w-full bg-[#2a2a2a] p-3 rounded-xl"
+            class="w-full glass-panel p-6 shadow-xl p-3 rounded-xl"
           />
 
           <input
             v-model="
               usuarioEditando.last_name
             "
-            class="w-full bg-[#2a2a2a] p-3 rounded-xl"
+            class="w-full glass-panel p-6 shadow-xl p-3 rounded-xl"
           />
 
           <input
@@ -428,14 +428,14 @@ onMounted(() => {
               usuarioEditando.base_salary
             "
             type="number"
-            class="w-full bg-[#2a2a2a] p-3 rounded-xl"
+            class="w-full glass-panel p-6 shadow-xl p-3 rounded-xl"
           />
 
           <select
             v-model="
               usuarioEditando.id_role
             "
-            class="w-full bg-[#2a2a2a] p-3 rounded-xl"
+            class="w-full glass-panel p-6 shadow-xl p-3 rounded-xl"
           >
 
             <option

@@ -66,17 +66,7 @@ export const eliminarUsuario = async (idUser) => {
  * Este enfoque es altamente eficiente al evitar múltiples llamadas al backend.
  */
 export const getMeserosConVentas = async () => {
-  const { data, error } = await supabase
-    .from("users")
-    .select(`
-      *,
-      roles(*),
-      pedidos(
-        total_amount
-      )
-    `)
-    .eq("id_role", 3); // Filtro directo para obtener solo meseros.
-
-  if (error) throw error;
-  return data;
+  const response = await fetch(`${API_URL}/meseros-ventas`);
+  if (!response.ok) throw new Error("Error obteniendo métricas");
+  return await response.json();
 };
