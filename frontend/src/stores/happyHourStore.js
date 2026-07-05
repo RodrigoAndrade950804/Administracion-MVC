@@ -14,8 +14,8 @@ export const useHappyHourStore = defineStore("happyHour", () => {
 
   const loadConfig = async () => {
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-      const res = await fetch(`${apiUrl}/happy-hour/config`);
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${apiUrl}/api/happy-hour/config`);
       if (res.ok) {
         const data = await res.json();
         if(data) config.value = data;
@@ -27,8 +27,8 @@ export const useHappyHourStore = defineStore("happyHour", () => {
 
   const loadVentasSemanales = async () => {
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-      const res = await fetch(`${apiUrl}/happy-hour/ventas-semanales`);
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${apiUrl}/api/happy-hour/ventas-semanales`);
       if (res.ok) {
         const data = await res.json();
         ventasSemanales.value = Number(data.total || 0);
@@ -38,8 +38,11 @@ export const useHappyHourStore = defineStore("happyHour", () => {
     }
   };
 
+  let canal = null;
+
   const iniciarRealtimeHappyHour = () => {
-    supabase
+    if (canal) return;
+    canal = supabase
       .channel("public:configuracion_happy_hour")
       .on(
         "postgres_changes",
