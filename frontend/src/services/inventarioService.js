@@ -7,7 +7,8 @@
  */
 export const registrarEntradaStock = async (id_producto, cantidad, id_user) => {
   // Realiza una petición POST al endpoint de inventario de tu backend.
-  const response = await fetch("http://localhost:3000/api/inventario/entrada", {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+  const response = await fetch(`${apiUrl}/inventario/entrada`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json" // Especifica que el cuerpo es un JSON.
