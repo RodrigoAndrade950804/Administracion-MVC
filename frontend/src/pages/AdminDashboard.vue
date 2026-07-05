@@ -216,6 +216,9 @@ const nombreAdmin = computed(() => {
 const fechaActual = ref("");
 let timerFecha;
 
+const activeTab = ref('bi');
+const isSidebarOpen = ref(false);
+
 const ultimaActualizacion = ref(new Date().toLocaleTimeString());
 
 const iniciarRealtimePedidos = () => {
@@ -395,18 +398,40 @@ const exportarPDF = async () => {
 </script>
 
 <template>
-  <div class="p-8 transition-colors duration-500 text-current">
+  <div class="flex h-screen bg-[#111111] overflow-hidden text-white transition-colors duration-500 text-current">
 
-    <!-- HEADER -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 glass-panel p-8">
-      <div>
-        <h1 class="text-4xl font-bold text-accent transition-colors duration-500">
-          Panel de Control Administrativo
-        </h1>
-        <p class="opacity-80 mt-2" v-if="happyHourStore.config.is_active">
-          ¡MODO NEÓN / HAPPY HOUR ACTIVO!
-        </p>
+    <!-- SIDEBAR -->
+    <aside :class="['fixed inset-y-0 left-0 z-50 w-64 glass-panel border-r border-gray-800 transition-transform duration-300 md:relative md:translate-x-0', isSidebarOpen ? 'translate-x-0' : '-translate-x-full']">
+      <div class="p-6 flex justify-between items-center border-b border-gray-800">
+        <h2 class="text-xl font-bold text-accent">Aroma Grano</h2>
+        <button @click="isSidebarOpen = false" class="md:hidden text-gray-400 hover:text-white">✕</button>
       </div>
+      <nav class="p-4 flex flex-col gap-2">
+        <button @click="activeTab = 'bi'; isSidebarOpen = false" :class="['w-full text-left px-4 py-3 rounded-xl transition', activeTab === 'bi' ? 'bg-indigo-600 font-bold' : 'hover:bg-gray-800']">📊 Inteligencia BI</button>
+        <button @click="activeTab = 'usuarios'; isSidebarOpen = false" :class="['w-full text-left px-4 py-3 rounded-xl transition', activeTab === 'usuarios' ? 'bg-indigo-600 font-bold' : 'hover:bg-gray-800']">👥 Personal</button>
+        <button @click="activeTab = 'productos'; isSidebarOpen = false" :class="['w-full text-left px-4 py-3 rounded-xl transition', activeTab === 'productos' ? 'bg-indigo-600 font-bold' : 'hover:bg-gray-800']">🍔 Menú / Inv.</button>
+        <button @click="activeTab = 'madi'; isSidebarOpen = false" :class="['w-full text-left px-4 py-3 rounded-xl transition', activeTab === 'madi' ? 'bg-indigo-600 font-bold' : 'hover:bg-gray-800']">🎯 Metas MADI</button>
+        <button @click="activeTab = 'happyhour'; isSidebarOpen = false" :class="['w-full text-left px-4 py-3 rounded-xl transition', activeTab === 'happyhour' ? 'bg-indigo-600 font-bold' : 'hover:bg-gray-800']">🔥 Happy Hour</button>
+      </nav>
+    </aside>
+
+    <!-- OVERLAY MÓVIL -->
+    <div v-if="isSidebarOpen" @click="isSidebarOpen = false" class="fixed inset-0 bg-black/50 z-40 md:hidden"></div>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col h-screen overflow-y-auto">
+
+      <!-- TOP NAV -->
+      <header class="p-4 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div class="flex items-center gap-4">
+          <button @click="isSidebarOpen = true" class="md:hidden text-gray-400 hover:text-white p-2 glass-panel rounded-lg">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+          </button>
+          <div>
+            <h1 class="text-3xl md:text-4xl font-bold text-accent transition-colors duration-500">Panel Admin</h1>
+            <p class="opacity-80 mt-1" v-if="happyHourStore.config.is_active">¡MODO NEÓN / HAPPY HOUR ACTIVO!</p>
+          </div>
+        </div>
 
       <div class="flex flex-wrap gap-4 w-full md:w-auto">
         <button
@@ -428,10 +453,15 @@ const exportarPDF = async () => {
           Cerrar Sesión
         </button>
       </div>
-    </div>
+      </header>
 
-    <!-- METRICS HEADER CARDS -->
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 mb-8">
+      <!-- CONTENT WRAPPER -->
+      <div class="p-4 md:p-8 pt-0">
+        <!-- PESTAÑA BI -->
+        <div v-if="activeTab === 'bi'">
+
+          <!-- METRICS HEADER CARDS -->
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 mb-8">
       
       <!-- Card 1: Admin & Fecha -->
       <div class="glass-panel p-5 rounded-3xl flex flex-col justify-center border-l-4 border-purple-500">
@@ -532,20 +562,29 @@ const exportarPDF = async () => {
       </div>
     </div>
 
-    <!-- USUARIOS -->
-    <div class="mt-8">
-      <UsuariosManager />
-    </div>
+        </div> <!-- END PESTAÑA BI -->
 
-    <!-- PRODUCTOS -->
-    <!-- 🔑 key reactivo para refrescar stock -->
-    <ProductosManager :key="productosKey" />
+        <!-- USUARIOS -->
+        <div v-if="activeTab === 'usuarios'" class="mt-4">
+          <UsuariosManager />
+        </div>
 
-    <!-- CONFIGURACION GLOBAL Y HAPPY HOUR -->
-    <div class="mt-8">
-      <HappyHourManager />
-      <MadiManager />
-    </div>
+        <!-- PRODUCTOS -->
+        <div v-if="activeTab === 'productos'" class="mt-4">
+          <ProductosManager :key="productosKey" />
+        </div>
 
+        <!-- MADI -->
+        <div v-if="activeTab === 'madi'" class="mt-4">
+          <MadiManager />
+        </div>
+
+        <!-- HAPPY HOUR -->
+        <div v-if="activeTab === 'happyhour'" class="mt-4">
+          <HappyHourManager />
+        </div>
+
+      </div>
+    </main>
   </div>
 </template>
