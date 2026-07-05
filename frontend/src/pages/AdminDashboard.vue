@@ -16,6 +16,9 @@ import UsuariosManager from "../components/admin/UsuariosManager.vue";
 import MadiManager from "../components/admin/MadiManager.vue";
 import HappyHourManager from "../components/admin/HappyHourManager.vue";
 
+import { getReglasBonos } from "../services/madiService";
+import { computed } from "vue";
+
 const router = useRouter();
 const authStore = useAuthStore();
 const happyHourStore = useHappyHourStore();
@@ -27,6 +30,7 @@ const productosKey = ref(0);
 
 // Referencia al canal de suscripción de Supabase para limpieza posterior.
 let canalProductos = null;
+let canalPedidosAdmin = null;
 
 // =========================
 // LOGOUT
@@ -65,9 +69,7 @@ const iniciarRealtimeProductos = () => {
 };
 
 // Ciclo de vida: Inicia la suscripción apenas el dashboard está montado.
-onMounted(() => {
-  iniciarRealtimeProductos();
-});
+// El onMounted original fue fusionado más abajo
 
 // Ciclo de vida: Elimina el canal de suscripción al salir de la página
 // para evitar fugas de memoria y tráfico innecesario (prevención de bugs).
@@ -75,7 +77,181 @@ onUnmounted(() => {
   if (canalProductos) {
     supabase.removeChannel(canalProductos);
   }
+  if (canalPedidosAdmin) {
+    supabase.removeChannel(canalPedidosAdmin);
+  }
+  if (timerFecha) clearInterval(timerFecha);
 });
+// =========================
+// HISTÓRICO BI Y KPIs
+// =========================
+const historicoFechas = ref([]);
+const ventasHoy = ref(0);
+const utilidadHoy = ref(0);
+const ventasAyer = ref(0);
+const utilidadAyer = ref(0);
+
+const filtros = ref({
+  fecha: '',
+  ingreso: '',
+  costo: '',
+  bono: '',
+  utilidad: ''
+});
+
+const cargarHistorico = async () => {
+  try {
+    const data = await obtenerDatosReporte(); // Reusa la función de exportar
+    if (!data) return;
+    const reglas = await getReglasBonos();
+    const config = happyHourStore.config;
+    const metaDiaria = Number(config?.personal_daily_goal || 0);
+
+    const porFecha = {};
+
+    data.forEach(p => {
+      const fechaStr = new Date(p.pedido_date).toLocaleDateString();
+      if (!porFecha[fechaStr]) {
+        porFecha[fechaStr] = { fecha: fechaStr, ingresos: 0, costos: 0, bonos: 0, meseros: {} };
+      }
+      const item = porFecha[fechaStr];
+      const totalP = Number(p.total_amount || 0);
+      item.ingresos += totalP;
+
+      let costoTotalPedido = 0;
+      if (p.detalle_pedidos) {
+        p.detalle_pedidos.forEach(d => {
+          costoTotalPedido += Number(d.productos?.production_cost || 0) * d.quantity;
+        });
+      }
+      item.costos += costoTotalPedido;
+
+      const mesero = `${p.users?.first_name || ""} ${p.users?.last_name || ""}`.trim();
+      if (!item.meseros[mesero]) item.meseros[mesero] = 0;
+      item.meseros[mesero] += totalP;
+    });
+
+    Object.values(porFecha).forEach(dia => {
+      let bonosDia = 0;
+      Object.values(dia.meseros).forEach(ventaMesero => {
+        const porcentaje = metaDiaria > 0 ? (ventaMesero / metaDiaria) * 100 : 0;
+        let factorBono = 0;
+        reglas.forEach(r => {
+          if (porcentaje >= r.min_percentage) factorBono = Number(r.bonus_factor);
+        });
+        if (ventaMesero > metaDiaria && factorBono > 0) {
+          bonosDia += (ventaMesero - metaDiaria) * (factorBono / 100);
+        }
+      });
+      dia.bonos = bonosDia;
+      dia.utilidadFinal = dia.ingresos - dia.costos - dia.bonos;
+    });
+
+    historicoFechas.value = Object.values(porFecha).sort((a, b) => {
+      // Ordenar por fecha descendente asumiendo D/M/YYYY
+      const [d1, m1, y1] = a.fecha.split('/');
+      const [d2, m2, y2] = b.fecha.split('/');
+      return new Date(y2, m2-1, d2) - new Date(y1, m1-1, d1);
+    });
+
+    const hoyStr = new Date().toLocaleDateString();
+    const ayerDate = new Date();
+    ayerDate.setDate(ayerDate.getDate() - 1);
+    const ayerStr = ayerDate.toLocaleDateString();
+
+    const statsHoy = historicoFechas.value.find(h => h.fecha === hoyStr);
+    const statsAyer = historicoFechas.value.find(h => h.fecha === ayerStr);
+
+    ventasHoy.value = statsHoy ? statsHoy.ingresos : 0;
+    utilidadHoy.value = statsHoy ? statsHoy.utilidadFinal : 0;
+    ventasAyer.value = statsAyer ? statsAyer.ingresos : 0;
+    utilidadAyer.value = statsAyer ? statsAyer.utilidadFinal : 0;
+
+  } catch (error) {
+    console.error("Error cargando histórico:", error);
+  }
+};
+
+const historicoFiltrado = computed(() => {
+  return historicoFechas.value.filter(h => {
+    const pFecha = h.fecha.includes(filtros.value.fecha);
+    const pIngreso = h.ingresos >= Number(filtros.value.ingreso || 0);
+    const pCosto = h.costos >= Number(filtros.value.costo || 0);
+    const pBono = h.bonos >= Number(filtros.value.bono || 0);
+    const pUtilidad = h.utilidadFinal >= Number(filtros.value.utilidad || 0);
+    return pFecha && pIngreso && pCosto && pBono && pUtilidad;
+  });
+});
+
+const comparativaUtilidad = computed(() => {
+  if (utilidadAyer.value === 0) return { texto: 'Sin utilidad ayer para comparar', clase: 'text-gray-400' };
+  const diff = utilidadHoy.value - utilidadAyer.value;
+  const porcentaje = (diff / Math.abs(utilidadAyer.value)) * 100;
+  if (diff > 0) return { texto: `Aumentó ${porcentaje.toFixed(1)}% 📈`, clase: 'text-green-500 font-bold' };
+  if (diff < 0) return { texto: `Bajó ${Math.abs(porcentaje).toFixed(1)}% 📉`, clase: 'text-red-500 font-bold' };
+  return { texto: `Igual que ayer ➖`, clase: 'text-yellow-500 font-bold' };
+});
+
+const progresoVentasMadi = computed(() => {
+  if (!happyHourStore.config) return 0;
+  const totalVentas = Number(happyHourStore.ventasSemanales || 0);
+  const meta = Number(happyHourStore.config.weekly_sales_trigger || 100);
+  if (meta <= 0) return 0;
+  return Math.min((totalVentas / meta) * 100, 100);
+});
+
+const faltanteMadi = computed(() => {
+  const meta = Number(happyHourStore.config?.weekly_sales_trigger || 0);
+  const ventas = Number(happyHourStore.ventasSemanales || 0);
+  const faltante = meta - ventas;
+  return faltante > 0 ? faltante : 0;
+});
+
+const nombreAdmin = computed(() => {
+  return authStore.user?.first_name 
+    ? `${authStore.user.first_name} ${authStore.user.last_name || ''}` 
+    : 'Administrador';
+});
+
+const fechaActual = ref("");
+let timerFecha;
+
+const ultimaActualizacion = ref(new Date().toLocaleTimeString());
+
+const iniciarRealtimePedidos = () => {
+  if (canalPedidosAdmin) return;
+  canalPedidosAdmin = supabase
+    .channel("admin-pedidos-realtime")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "pedidos" },
+      (payload) => {
+        console.log("Cambio en pedidos (Admin BI):", payload);
+        cargarHistorico();
+        happyHourStore.loadConfig();
+        happyHourStore.loadVentasSemanales();
+      }
+    )
+    .subscribe();
+};
+
+// Actualiza los datos al montar y suscribe al realtime
+onMounted(() => {
+  iniciarRealtimeProductos();
+  iniciarRealtimePedidos();
+  cargarHistorico();
+  happyHourStore.loadConfig();
+  happyHourStore.loadVentasSemanales();
+  setInterval(() => {
+    ultimaActualizacion.value = new Date().toLocaleTimeString();
+  }, 1000);
+  
+  timerFecha = setInterval(() => {
+    const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+    fechaActual.value = new Date().toLocaleDateString('es-ES', opciones);
+  }, 1000);
+});
+
 // =========================
 // EXPORTACIÓN A EXCEL Y PDF
 // =========================
@@ -251,6 +427,108 @@ const exportarPDF = async () => {
         >
           Cerrar Sesión
         </button>
+      </div>
+    </div>
+
+    <!-- METRICS HEADER CARDS -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 mb-8">
+      
+      <!-- Card 1: Admin & Fecha -->
+      <div class="glass-panel p-5 rounded-3xl flex flex-col justify-center border-l-4 border-purple-500">
+        <span class="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Administrador en Turno</span>
+        <span class="font-bold text-2xl text-white">{{ nombreAdmin }}</span>
+        <span class="text-xs text-gray-400 mt-2">{{ fechaActual }}</span>
+      </div>
+
+      <!-- Card 2: Utilidad Hoy -->
+      <div class="glass-panel p-5 rounded-3xl flex flex-col justify-center border-l-4 border-indigo-500">
+        <span class="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Utilidad Final del Día</span>
+        <span class="font-bold text-3xl text-white">${{ utilidadHoy.toFixed(2) }}</span>
+        <div class="flex items-center gap-2 mt-2">
+          <span class="text-xs" :class="comparativaUtilidad.clase">{{ comparativaUtilidad.texto }}</span>
+          <span class="text-xs text-gray-500">vs Ayer (${{ utilidadAyer.toFixed(2) }})</span>
+        </div>
+      </div>
+
+      <!-- Card 2: Ventas Hoy -->
+      <div class="glass-panel p-5 rounded-3xl flex flex-col justify-center border-l-4 border-blue-500">
+        <span class="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Ventas del Día</span>
+        <span class="font-bold text-2xl text-white">${{ ventasHoy.toFixed(2) }}</span>
+        <span class="text-xs text-gray-500 mt-2">Última act: {{ ultimaActualizacion }}</span>
+      </div>
+      
+      <!-- Card 3: Estado MADI Semanal -->
+      <div class="glass-panel p-5 rounded-3xl flex flex-col justify-center border-l-4 relative overflow-hidden transition-colors duration-500"
+           :class="happyHourStore.config.is_active ? 'border-neon-green shadow-[0_0_15px_rgba(0,255,120,0.4)]' : 'border-amber-500'">
+        <div v-if="happyHourStore.config.is_active" class="absolute inset-0 bg-green-500/10 pointer-events-none"></div>
+        <span class="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1 relative z-10">Estado MADI Semanal</span>
+        <span v-if="happyHourStore.config.is_active" class="font-bold text-2xl text-neon-green relative z-10 mt-1 drop-shadow-md">Activado 🔥</span>
+        <span v-else class="font-bold text-xl text-amber-500 relative z-10 mt-1">Faltan ${{ faltanteMadi.toFixed(2) }}</span>
+        <span class="text-xs text-gray-500 mt-2 relative z-10">Ventas actuales: ${{ Number(happyHourStore.ventasSemanales || 0).toFixed(2) }}</span>
+      </div>
+
+      <!-- Card 4: Progreso MADI -->
+      <div class="glass-panel p-5 rounded-3xl flex flex-col justify-center border-l-4 border-gray-600">
+        <span class="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Progreso MADI ({{ Number(progresoVentasMadi || 0).toFixed(0) }}%)</span>
+        <div class="w-full bg-gray-700 rounded-full h-3 mt-2 mb-2">
+          <div class="bg-green-500 h-3 rounded-full transition-all duration-500" :style="`width:${progresoVentasMadi}%`"></div>
+        </div>
+        <div class="flex justify-between text-xs text-gray-400 mt-1">
+          <span>Meta: ${{ Number(happyHourStore.config.weekly_sales_trigger || 0).toFixed(2) }}</span>
+          <span>Acum: ${{ Number(happyHourStore.ventasSemanales || 0).toFixed(2) }}</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TABLA HISTÓRICA DE UTILIDAD -->
+    <div class="glass-panel p-6 rounded-3xl mb-8">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-white">Histórico de Utilidad Neta (BI)</h2>
+        <button @click="cargarHistorico" class="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-white transition">Actualizar 🔄</button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="text-gray-400 border-b border-gray-700">
+              <th class="p-3">
+                Fecha
+                <input v-model="filtros.fecha" type="text" placeholder="Filtrar..." class="mt-2 w-full p-1 text-xs bg-gray-800 text-white rounded border border-gray-600 outline-none">
+              </th>
+              <th class="p-3">
+                Ingresos ($)
+                <input v-model="filtros.ingreso" type="number" placeholder="Min..." class="mt-2 w-full p-1 text-xs bg-gray-800 text-white rounded border border-gray-600 outline-none">
+              </th>
+              <th class="p-3">
+                Costos Insumos ($)
+                <input v-model="filtros.costo" type="number" placeholder="Min..." class="mt-2 w-full p-1 text-xs bg-gray-800 text-white rounded border border-gray-600 outline-none">
+              </th>
+              <th class="p-3">
+                Bonos Pagados ($)
+                <input v-model="filtros.bono" type="number" placeholder="Min..." class="mt-2 w-full p-1 text-xs bg-gray-800 text-white rounded border border-gray-600 outline-none">
+              </th>
+              <th class="p-3">
+                Utilidad Final ($)
+                <input v-model="filtros.utilidad" type="number" placeholder="Min..." class="mt-2 w-full p-1 text-xs bg-gray-800 text-white rounded border border-gray-600 outline-none">
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="fila in historicoFiltrado" :key="fila.fecha" class="border-b border-gray-800/50 hover:bg-white/5 transition">
+              <td class="p-3 text-white font-medium">{{ fila.fecha }}</td>
+              <td class="p-3 text-green-400">${{ fila.ingresos.toFixed(2) }}</td>
+              <td class="p-3 text-red-400">-${{ fila.costos.toFixed(2) }}</td>
+              <td class="p-3 text-amber-400">-${{ fila.bonos.toFixed(2) }}</td>
+              <td class="p-3 font-bold" :class="fila.utilidadFinal > 0 ? 'text-green-500' : 'text-red-500'">
+                ${{ fila.utilidadFinal.toFixed(2) }}
+              </td>
+            </tr>
+            <tr v-if="historicoFiltrado.length === 0">
+              <td colspan="5" class="p-6 text-center text-gray-500">No hay datos que coincidan con los filtros.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 

@@ -14,6 +14,11 @@ const meseros = ref([]);
 const madiConfig = ref(null);
 const happyHourStore = useHappyHourStore();
 const reglas = ref([]);
+const ventasHoy = ref(0);
+const ventasAyer = ref(0);
+const fechaActual = ref(new Date().toLocaleString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+
+let timer;
 
 // Canales para las suscripciones Realtime.
 let canalMadi = null;
@@ -72,6 +77,44 @@ const loadRankingMeseros = async () => {
 };
 
 // =========================
+// CARGA DE DATOS DIARIOS
+// =========================
+const loadVentasDiarias = async () => {
+  try {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    const ayer = new Date(hoy);
+    ayer.setDate(hoy.getDate() - 1);
+
+    const { data, error } = await supabase
+      .from("pedidos")
+      .select("total_amount, pedido_date")
+      .eq("status", "cerrado")
+      .gte("pedido_date", ayer.toISOString());
+
+    if (error) throw error;
+
+    let totalHoy = 0;
+    let totalAyer = 0;
+
+    data.forEach((p) => {
+      const fecha = new Date(p.pedido_date);
+      if (fecha >= hoy) {
+        totalHoy += Number(p.total_amount);
+      } else if (fecha >= ayer && fecha < hoy) {
+        totalAyer += Number(p.total_amount);
+      }
+    });
+
+    ventasHoy.value = totalHoy;
+    ventasAyer.value = totalAyer;
+  } catch (err) {
+    console.error("Error obteniendo ventas diarias:", err);
+  }
+};
+
+// =========================
 // REALTIME (Suscripciones)
 // =========================
 
@@ -82,6 +125,7 @@ const iniciarRealtimePedidos = () => {
     .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, async () => {
       await loadRankingMeseros();
       await happyHourStore.loadVentasSemanales();
+      await loadVentasDiarias();
     })
     .subscribe();
 };
@@ -111,16 +155,22 @@ onMounted(async () => {
   await loadRankingMeseros();
   await happyHourStore.loadConfig();
   await happyHourStore.loadVentasSemanales();
+  await loadVentasDiarias();
   iniciarRealtime();
   iniciarRealtimePedidos();
   iniciarRealtimeMadi();
   happyHourStore.iniciarRealtimeHappyHour();
+
+  timer = setInterval(() => {
+    fechaActual.value = new Date().toLocaleString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }, 1000);
 });
 
 // Limpieza de canales al destruir el componente para evitar fugas de memoria.
 onUnmounted(() => {
   if (canalPedidos) supabase.removeChannel(canalPedidos);
   if (canalMadi) supabase.removeChannel(canalMadi);
+  if (timer) clearInterval(timer);
 });
 
 // =========================
@@ -143,6 +193,32 @@ const progresoVentas = computed(() => {
   if (meta <= 0) return 0;
   return Math.min((totalVentas / meta) * 100, 100);
 });
+
+const comparativaVentas = computed(() => {
+  if (ventasAyer.value === 0) return { texto: 'Sin ventas ayer para comparar', clase: 'text-gray-400' };
+  const diff = ventasHoy.value - ventasAyer.value;
+  const porcentaje = (diff / ventasAyer.value) * 100;
+  if (diff > 0) {
+    return { texto: `Aumentó ${porcentaje.toFixed(1)}% 📈`, clase: 'text-green-500 font-bold' };
+  } else if (diff < 0) {
+    return { texto: `Bajó ${Math.abs(porcentaje).toFixed(1)}% 📉`, clase: 'text-red-500 font-bold' };
+  } else {
+    return { texto: `Igual que ayer ➖`, clase: 'text-yellow-500 font-bold' };
+  }
+});
+
+const nombreSupervisor = computed(() => {
+  return authStore.user?.first_name 
+    ? `${authStore.user.first_name} ${authStore.user.last_name || ''}` 
+    : 'Supervisor';
+});
+
+const faltanteMadi = computed(() => {
+  const meta = Number(happyHourStore.config?.weekly_sales_trigger || 0);
+  const ventas = Number(happyHourStore.ventasSemanales || 0);
+  const faltante = meta - ventas;
+  return faltante > 0 ? faltante : 0;
+});
 </script>
 
 
@@ -164,6 +240,7 @@ const progresoVentas = computed(() => {
         <p class="text-gray-400">
           Monitoreo Operativo en Tiempo Real
         </p>
+
       </div>
 
     <div class="flex flex-wrap gap-4 w-full md:w-auto">
@@ -195,7 +272,44 @@ const progresoVentas = computed(() => {
 
     </div>
 
-    <!-- GRID -->
+    <!-- METRICS HEADER CARDS -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+      
+      <!-- Card 1: Supervisor -->
+      <div class="glass-panel p-5 rounded-3xl flex flex-col justify-center border-l-4 border-blue-500">
+        <span class="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Supervisor en Turno</span>
+        <span class="font-bold text-2xl text-white">{{ nombreSupervisor }}</span>
+        <span class="text-sm text-gray-500 mt-2">{{ fechaActual }}</span>
+      </div>
+
+      <!-- Card 2: Ventas Hoy -->
+      <div class="glass-panel p-5 rounded-3xl flex flex-col justify-center border-l-4 border-green-500">
+        <span class="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Ventas del Día</span>
+        <span class="font-bold text-3xl text-white">${{ ventasHoy.toFixed(2) }}</span>
+      </div>
+
+      <!-- Card 3: Comparativa -->
+      <div class="glass-panel p-5 rounded-3xl flex flex-col justify-center border-l-4" :class="ventasHoy - ventasAyer > 0 ? 'border-green-500' : 'border-red-500'">
+        <span class="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Rendimiento vs Ayer</span>
+        <span class="font-bold text-xl mt-1" :class="comparativaVentas.clase">
+          {{ comparativaVentas.texto }}
+        </span>
+        <span class="text-sm text-gray-500 mt-2">Ventas ayer: ${{ ventasAyer.toFixed(2) }}</span>
+      </div>
+      
+      <!-- Card 4: Faltante MADI -->
+      <div class="glass-panel p-5 rounded-3xl flex flex-col justify-center border-l-4 relative overflow-hidden transition-colors duration-500"
+           :class="happyHourStore.config.is_active ? 'border-neon-green shadow-[0_0_15px_rgba(0,255,120,0.4)]' : 'border-amber-500'">
+        <div v-if="happyHourStore.config.is_active" class="absolute inset-0 bg-green-500/10 pointer-events-none"></div>
+        <span class="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1 relative z-10">Estado MADI Semanal</span>
+        <span v-if="happyHourStore.config.is_active" class="font-bold text-2xl text-neon-green relative z-10 mt-1 drop-shadow-md">Activado 🔥</span>
+        <span v-else class="font-bold text-xl text-amber-500 relative z-10 mt-1">Faltan ${{ faltanteMadi.toFixed(2) }}</span>
+        <span class="text-sm text-gray-500 mt-2 relative z-10">Ventas actuales: ${{ Number(happyHourStore.ventasSemanales || 0).toFixed(2) }}</span>
+      </div>
+
+    </div>
+
+    <!-- MAIN GRID -->
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -260,6 +374,21 @@ const progresoVentas = computed(() => {
             {{ Number(progresoVentas || 0).toFixed(0) }}%
             de la meta global de ventas
           </p>
+
+          <div class="mt-4 pt-4 border-t border-gray-700 text-sm space-y-2">
+            <div class="flex justify-between">
+              <span class="text-gray-400">Ventas Acumuladas Semanales:</span>
+              <span class="font-bold text-white">${{ Number(happyHourStore.ventasSemanales || 0).toFixed(2) }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Meta MADI Semanal:</span>
+              <span class="font-bold text-white">${{ Number(happyHourStore.config.weekly_sales_trigger || 0).toFixed(2) }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Faltante para MADI:</span>
+              <span class="font-bold text-amber-500">${{ faltanteMadi.toFixed(2) }}</span>
+            </div>
+          </div>
           
         </div>
         <!-- RANKING -->

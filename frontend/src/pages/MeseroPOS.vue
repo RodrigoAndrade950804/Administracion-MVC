@@ -42,6 +42,15 @@ const madiConfig = ref(null);      // Almacena las reglas de bonificación.
 const progresoPersonal = ref({ ventas: 0, meta: 100, porcentaje: 0, categoria: "Sin Bono" });
 const happyHourStore = useHappyHourStore();
 
+const nombreMesero = computed(() => {
+  return authStore.user?.first_name 
+    ? `${authStore.user.first_name} ${authStore.user.last_name || ''}` 
+    : 'Mesero';
+});
+
+const fechaActual = ref("");
+let timerFecha;
+
 // Variables de control para los canales de WebSockets. 
 // Guardar la referencia es vital para poder "desconectarlos" al salir de la pantalla.
 let canalProductos = null;
@@ -326,6 +335,11 @@ onMounted(async () => {
   await cargarPedidoMesa();
   await happyHourStore.loadConfig();
   
+  timerFecha = setInterval(() => {
+    const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+    fechaActual.value = new Date().toLocaleDateString('es-ES', opciones);
+  }, 1000);
+  
   // ...Y luego encendemos los "radares" para mantenerlos actualizados en vivo.
   iniciarRealtimeProductos();
   iniciarRealtimeMadi();
@@ -342,6 +356,7 @@ onUnmounted(() => {
   if (canalMadi) supabase.removeChannel(canalMadi);
   if (canalPedidos) supabase.removeChannel(canalPedidos);
   if (canalMesas) supabase.removeChannel(canalMesas);
+  if (timerFecha) clearInterval(timerFecha);
 });
 </script>
 
@@ -392,6 +407,13 @@ onUnmounted(() => {
 
       </div>
 
+    </div>
+
+    <!-- TARJETA IDENTIDAD Y FECHA -->
+    <div class="glass-panel p-5 rounded-3xl flex flex-col justify-center border-l-4 border-emerald-500 mb-8">
+      <span class="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Mesero en Turno</span>
+      <span class="font-bold text-2xl text-white">{{ nombreMesero }}</span>
+      <span class="text-sm text-gray-400 mt-2">{{ fechaActual }}</span>
     </div>
 
     <!-- WIDGET PROGRESO PERSONAL -->
