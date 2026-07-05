@@ -125,15 +125,19 @@ const exportarExcel = async () => {
         const subtotalPagado = Number(d.subtotal || 0);
         const gananciaNeta = subtotalPagado - costoProduccion;
         
+        const precioBase = Number(d.productos?.sale_price || 0);
+        const precioFinal = Number(d.final_unit_price || 0);
+        const montoDescontado = precioBase - precioFinal;
+
         detalles.push({
           "ID Pedido": p.id_pedido,
           "Producto": d.productos?.name || "Desconocido",
           "Cantidad": d.quantity,
-          "Precio Unit. Base ($)": Number(d.productos?.sale_price || 0).toFixed(2),
-          "Precio Unit. Final ($)": Number(d.final_unit_price || 0).toFixed(2),
+          "Precio Unit. Base ($)": precioBase.toFixed(2),
+          "Precio Unit. Final ($)": precioFinal.toFixed(2),
           "Aplica Happy Hour": d.is_madi_applied ? "Sí" : "No",
           "Descuento (%)": Number(d.madi_discount_percentage || 0),
-          "Valor Descontado ($)": (Number(d.productos?.sale_price || 0) - Number(d.final_unit_price || 0)).toFixed(2),
+          "Monto Descontado ($)": montoDescontado.toFixed(2),
           "Subtotal Pagado ($)": subtotalPagado.toFixed(2),
           "Costo Total Prod. ($)": costoProduccion.toFixed(2),
           "Ganancia Neta ($)": gananciaNeta.toFixed(2)
@@ -218,7 +222,7 @@ const exportarPDF = async () => {
   <div class="p-8 transition-colors duration-500 text-current">
 
     <!-- HEADER -->
-    <div class="flex justify-between items-center mb-8 glass-panel p-8">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 glass-panel p-8">
       <div>
         <h1 class="text-4xl font-bold text-accent transition-colors duration-500">
           Panel de Control Administrativo
@@ -228,7 +232,7 @@ const exportarPDF = async () => {
         </p>
       </div>
 
-      <div class="flex gap-4">
+      <div class="flex flex-wrap gap-4 w-full md:w-auto">
         <button
           @click="exportarPDF"
           class="bg-gray-800 hover:bg-gray-700 text-white px-5 py-3 rounded-2xl font-bold btn-primary transition-all duration-300"

@@ -154,7 +154,7 @@ const progresoVentas = computed(() => {
 
     <!-- HEADER -->
 
-    <div class="flex justify-between items-start mb-8">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
 
       <div>
         <h1 class="text-4xl font-bold">
@@ -166,7 +166,7 @@ const progresoVentas = computed(() => {
         </p>
       </div>
 
-    <div class="flex gap-4">
+    <div class="flex flex-wrap gap-4 w-full md:w-auto">
 
       <div
         v-if="

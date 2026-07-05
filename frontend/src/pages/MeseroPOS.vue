@@ -172,6 +172,8 @@ const total = computed(() =>
   pedido.value.reduce((acc, i) => acc + Number(i.subtotal), 0)
 );
 
+const isHappyHourActive = computed(() => happyHourStore.config.is_active);
+
 // ==========================================
 // TRANSACCIONES COMPLEJAS (Agregar/Quitar)
 // ==========================================
@@ -275,9 +277,12 @@ const removerProducto = async (index) => {
 // ==========================================
 // FINALIZAR TRANSACCIÓN (COBRAR)
 // ==========================================
+const loading = ref(false);
+
 const cobrarPedido = async () => {
   try {
     if (!pedidoActivo.value) return;
+    loading.value = true;
 
     // 1. Ejecuta el descuento duro en la bodega (Backend API).
     await descontarInventarioPedido(pedidoActivo.value.id_pedido);
@@ -299,6 +304,8 @@ const cobrarPedido = async () => {
     alert("Pedido cobrado correctamente");
   } catch {
     alert("Error al cobrar pedido");
+  } finally {
+    loading.value = false;
   }
 };
 
@@ -347,7 +354,7 @@ onUnmounted(() => {
     <!-- HEADER -->
 
     <div
-      class="flex justify-between items-center mb-8"
+      class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8"
     >
 
       <div>
@@ -358,7 +365,7 @@ onUnmounted(() => {
 
       </div>
 
-      <div class="flex gap-4">
+      <div class="flex flex-wrap gap-4 w-full md:w-auto">
 
         <div
           v-if="
@@ -604,7 +611,7 @@ onUnmounted(() => {
             </div>
 
             <button 
-              @click="cerrarPedido" 
+              @click="cobrarPedido" 
               class="w-full btn-primary text-white font-bold py-4 rounded-xl shadow transition-all flex items-center justify-center space-x-2 text-lg disabled:opacity-50"
               :disabled="loading"
             >

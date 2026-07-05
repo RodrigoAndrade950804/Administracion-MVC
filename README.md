@@ -525,76 +525,8 @@ Aroma & Grano demuestra la implementación práctica de una arquitectura híbrid
 
 # Estructura Final
 
-```
-AromaGranoSystem
-├─ backend
-│  ├─ .env
-│  ├─ package-lock.json
-│  ├─ package.json
-│  └─ src
-│     ├─ app.js
-│     ├─ config
-│     │  └─ env.js
-│     ├─ controllers
-│     │  ├─ inventario.controller.js
-│     │  ├─ pedidos.controller.js
-│     │  └─ users.controller.js
-│     ├─ routes
-│     │  ├─ inventario.routes.js
-│     │  ├─ pedidos.routes.js
-│     │  └─ users.routes.js
-│     ├─ server.js
-│     ├─ services
-│     │  ├─ pedidos.service.js
-│     │  └─ supabaseAdmin.js
-│     ├─ utils
-│     └─ validations
-├─ docs
-├─ frontend
-│  ├─ .env
-│  ├─ index.html
-│  ├─ package-lock.json
-│  ├─ package.json
-│  ├─ public
-│  │  ├─ favicon.svg
-│  │  ├─ icons.svg
-│  │  └─ _redirects
-│  ├─ README.md
-│  ├─ src
-│  │  ├─ api
-│  │  ├─ App.vue
-│  │  ├─ components
-│  │  │  └─ admin
-│  │  │     ├─ MadiManager.vue
-│  │  │     ├─ ProductosManager.vue
-│  │  │     └─ UsuariosManager.vue
-│  │  ├─ layouts
-│  │  ├─ main.js
-│  │  ├─ pages
-│  │  │  ├─ AdminDashboard.vue
-│  │  │  ├─ LoginView.vue
-│  │  │  ├─ MeseroPOS.vue
-│  │  │  └─ SupervisorDashboard.vue
-│  │  ├─ router
-│  │  │  └─ index.js
-│  │  ├─ services
-│  │  │  ├─ inventarioService.js
-│  │  │  ├─ madiService.js
-│  │  │  ├─ mesasService.js
-│  │  │  ├─ pedidosService.js
-│  │  │  ├─ productosService.js
-│  │  │  ├─ supabase.js
-│  │  │  └─ usuariosService.js
-│  │  ├─ stores
-│  │  │  └─ authStore.js
-│  │  ├─ style.css
-│  │  ├─ styles
-│  │  └─ utils
-│  └─ vite.config.js
-└─ README.md
 
 ```
-```
 AromaGranoSystem
 ├─ backend
 │  ├─ .env
@@ -605,22 +537,47 @@ AromaGranoSystem
 │     ├─ config
 │     │  └─ env.js
 │     ├─ controllers
+│     │  ├─ happy_hour.controller.js
 │     │  ├─ inventario.controller.js
+│     │  ├─ madi.controller.js
+│     │  ├─ mesas.controller.js
 │     │  ├─ pedidos.controller.js
+│     │  ├─ productos.controller.js
 │     │  └─ users.controller.js
 │     ├─ routes
+│     │  ├─ happy_hour.routes.js
 │     │  ├─ inventario.routes.js
+│     │  ├─ madi.routes.js
+│     │  ├─ mesas.routes.js
 │     │  ├─ pedidos.routes.js
+│     │  ├─ productos.routes.js
 │     │  └─ users.routes.js
 │     ├─ server.js
 │     ├─ services
+│     │  ├─ happy_hour.service.js
+│     │  ├─ inventario.service.js
+│     │  ├─ madi.service.js
+│     │  ├─ mesas.service.js
 │     │  ├─ pedidos.service.js
-│     │  └─ supabaseAdmin.js
+│     │  ├─ productos.service.js
+│     │  ├─ supabaseAdmin.js
+│     │  └─ users.service.js
 │     ├─ utils
 │     └─ validations
 ├─ docs
 ├─ frontend
 │  ├─ .env
+│  ├─ dist
+│  │  ├─ assets
+│  │  │  ├─ html2canvas-CA1oGWsJ.js
+│  │  │  ├─ index-BEHSztDB.css
+│  │  │  ├─ index-CMf6P6dl.js
+│  │  │  ├─ index.es-DttPqi2K.js
+│  │  │  └─ purify.es-Bu4Grnl0.js
+│  │  ├─ favicon.svg
+│  │  ├─ icons.svg
+│  │  ├─ index.html
+│  │  └─ _redirects
 │  ├─ index.html
 │  ├─ package-lock.json
 │  ├─ package.json
@@ -634,6 +591,7 @@ AromaGranoSystem
 │  │  ├─ App.vue
 │  │  ├─ components
 │  │  │  └─ admin
+│  │  │     ├─ HappyHourManager.vue
 │  │  │     ├─ MadiManager.vue
 │  │  │     ├─ ProductosManager.vue
 │  │  │     └─ UsuariosManager.vue
@@ -655,7 +613,8 @@ AromaGranoSystem
 │  │  │  ├─ supabase.js
 │  │  │  └─ usuariosService.js
 │  │  ├─ stores
-│  │  │  └─ authStore.js
+│  │  │  ├─ authStore.js
+│  │  │  └─ happyHourStore.js
 │  │  ├─ style.css
 │  │  ├─ styles
 │  │  └─ utils

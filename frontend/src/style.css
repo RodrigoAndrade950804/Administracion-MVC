@@ -33,6 +33,18 @@ body {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
 
+.btn-primary {
+  background-color: #16a34a; /* green-600 */
+  color: white;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #22c55e; /* green-500 */
+  box-shadow: 0 4px 15px rgba(22, 163, 74, 0.4);
+}
+
 /* Neon Theme Global Overrides */
 .theme-neon {
   background-color: #020617 !important; /* Slate 950 - Darker for neon pop */
