@@ -168,7 +168,8 @@ Supabase PostgreSQL:
 * Cálculo de cumplimiento de metas.
 * Clasificación por niveles.
 * Factores de bonificación configurables.
-* Dashboard para supervisión.
+* Dashboard para supervisión (incluye Sidebar profesional).
+* Interfaz dinámica reactiva (Tema Oscuro Estándar vs Tema Neón) vinculada a la activación del Happy Hour en tiempo real.
 
 ---
 
@@ -247,6 +248,14 @@ Cuando un administrador desactiva una cuenta:
 3. El cliente recibe la notificación.
 4. Se ejecuta logout automático.
 5. La sesión queda invalidada.
+
+---
+
+## Autenticación y Autorización Criptográfica (JWT)
+1. **Delegación a Supabase Auth**: El frontend envía credenciales directamente a Supabase, quien devuelve un JWT firmado criptográficamente.
+2. **Interceptor Frontend (`apiClient.js`)**: Intercepta automáticamente todas las peticiones `fetch`, inyectando el token en la cabecera `Authorization: Bearer <token>`.
+3. **Guardia Backend (`auth.middleware.js`)**: El servidor Node.js/Express intercepta las peticiones, solicita a Supabase la validación criptográfica del token usando la llave administrativa (Service Role Key), y bloquea instantáneamente con error `401 Unauthorized` cualquier petición sin pase o adulterada.
+4. **Manejo Centralizado de Expiración**: Si el backend devuelve un `401`, el cliente API cierra automáticamente la sesión local y expulsa al usuario al Login.
 
 ---
 
@@ -392,6 +401,8 @@ AromaGranoSystem
 │     ├─ app.js
 │     ├─ config
 │     │  └─ env.js
+│     ├─ middlewares
+│     │  └─ auth.middleware.js
 │     ├─ controllers
 │     │  ├─ happy_hour.controller.js
 │     │  ├─ inventario.controller.js
@@ -434,6 +445,7 @@ AromaGranoSystem
 │  ├─ README.md
 │  ├─ src
 │  │  ├─ api
+│  │  │  └─ apiClient.js
 │  │  ├─ App.vue
 │  │  ├─ components
 │  │  │  └─ admin
