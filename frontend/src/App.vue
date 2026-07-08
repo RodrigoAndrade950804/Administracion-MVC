@@ -116,6 +116,7 @@
  * o dentro de la función setup() de un componente.
  */
 import { onMounted } from 'vue';
+import { useHappyHourStore } from './stores/happyHourStore';
 
 /**
  * useHappyHourStore — Store de Pinia para la gestión de Happy Hour.

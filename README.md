@@ -7,7 +7,7 @@ https://github.com/RodrigoAndrade950804/Administracion-MVC
 https://aromagranosystem.onrender.com
 
 * Frontend:
-https://aromagranosystem.netlify.app
+https://6a4a16e91c3ff50008e80766--aromagranosystem.netlify.app/
 
 * Video de Tarea Administración
 https://youtu.be/oaqMS9igiBU

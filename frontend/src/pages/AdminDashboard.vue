@@ -53,7 +53,7 @@ const iniciarRealtimeProductos = () => {
     .on(
       "postgres_changes",
       {
-        event: "UPDATE", // Escucha solo actualizaciones en la tabla.
+        event: "*", // Escucha todas las modificaciones.
         schema: "public",
         table: "productos",
       },
@@ -109,8 +109,21 @@ const cargarHistorico = async () => {
 
     const porFecha = {};
 
+    // Helper robusto para formatear fechas asegurando que se parsee como UTC si Postgres manda timestamp sin timezone
+    const formatFechaStr = (dateStr) => {
+      if (!dateStr) return '';
+      // Si dateStr es un string (como el de Postgres) y no tiene info de timezone ('Z' o '+'), le añadimos 'Z'
+      const isDateObject = dateStr instanceof Date;
+      let finalDateStr = dateStr;
+      if (!isDateObject && typeof dateStr === 'string' && !dateStr.endsWith('Z') && !dateStr.includes('+')) {
+        finalDateStr = dateStr + 'Z';
+      }
+      const d = new Date(finalDateStr);
+      return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+    };
+
     data.forEach(p => {
-      const fechaStr = new Date(p.pedido_date).toLocaleDateString();
+      const fechaStr = formatFechaStr(p.pedido_date);
       if (!porFecha[fechaStr]) {
         porFecha[fechaStr] = { fecha: fechaStr, ingresos: 0, costos: 0, bonos: 0, meseros: {} };
       }
@@ -154,10 +167,12 @@ const cargarHistorico = async () => {
       return new Date(y2, m2-1, d2) - new Date(y1, m1-1, d1);
     });
 
-    const hoyStr = new Date().toLocaleDateString();
+    const hoyDate = new Date();
+    const hoyStr = formatFechaStr(hoyDate);
+    
     const ayerDate = new Date();
     ayerDate.setDate(ayerDate.getDate() - 1);
-    const ayerStr = ayerDate.toLocaleDateString();
+    const ayerStr = formatFechaStr(ayerDate);
 
     const statsHoy = historicoFechas.value.find(h => h.fecha === hoyStr);
     const statsAyer = historicoFechas.value.find(h => h.fecha === ayerStr);
