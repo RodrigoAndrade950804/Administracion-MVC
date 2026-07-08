@@ -9,14 +9,8 @@ https://aromagranosystem.onrender.com
 * Frontend:
 https://administracion-mvc.vercel.app/
 
-* Video de Tarea Administración
-https://youtu.be/oaqMS9igiBU
-
-* Video de Tarea Core Funcionando
-https://youtu.be/Y70Jp4jhfYc
-
-* Video Defensa Del Core
-https://youtu.be/z2pX-3N2qXQ
+* Video de Evidencia:
+https://youtu.be/YqvZ42Ld6X8
 
 ---
 
